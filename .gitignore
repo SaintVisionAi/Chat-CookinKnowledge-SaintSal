@@ -82,4 +82,4 @@ attached_assets/
 # .replit (needed for Replit)
 # replit.nix (needed for Replit)
 # replit.md (documentation)
-# .env.example (template for environment variables)
+.env.example (template for environment variables)
