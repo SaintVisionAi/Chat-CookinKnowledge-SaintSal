@@ -7,6 +7,12 @@ import { registerRoutes } from "./routes";
 import { handleWebSocket } from "./websocket";
 import { setupVite, serveStatic, log } from "./vite";
 
+declare module "http" {
+  interface IncomingMessage {
+    rawBody: unknown;
+  }
+}
+
 const app = express();
 const server = createServer(app);
 
@@ -27,14 +33,7 @@ const initPromise = (async () => {
   }
 })();
 
-async function initializeApp() {
-
-declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
-}
-
+// Middleware setup (synchronous, outside async function)
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -230,4 +229,4 @@ if (isVercel) {
 
 // Export the app for Vercel serverless functions
 // Vercel's @vercel/node will automatically handle Express apps
-export default app;
+export { app as default };
