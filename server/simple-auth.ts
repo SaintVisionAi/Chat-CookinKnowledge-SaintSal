@@ -1,7 +1,7 @@
 // Simple username/password authentication
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import type { Express, Request, Response, NextFunction } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
@@ -34,6 +34,9 @@ export function getSession() {
 
 export async function setupSimpleAuth(app: Express) {
   app.set("trust proxy", 1);
+
+  // Ensure JSON parsing middleware is applied
+  app.use(express.json());
   app.use(getSession());
 
   // Register endpoint
