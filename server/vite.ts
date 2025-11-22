@@ -68,18 +68,51 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // On Vercel, files are in dist/public relative to the built server file
+  // The built server file is in dist/, so we need to go up one level and into dist/public
+  // But import.meta.dirname in the built file points to dist/, so we look for dist/public
+  // However, when running locally, import.meta.dirname is server/, so we look for server/public
+  // Try multiple possible paths
+  const possiblePaths = [
+    path.resolve(import.meta.dirname, "..", "dist", "public"), // Vercel: dist/index.js -> dist/public
+    path.resolve(import.meta.dirname, "public"), // Local: server/index.ts -> server/public
+    path.resolve(process.cwd(), "dist", "public"), // Fallback: project root -> dist/public
+  ];
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+  let distPath: string | null = null;
+  for (const possiblePath of possiblePaths) {
+    if (fs.existsSync(possiblePath)) {
+      distPath = possiblePath;
+      break;
+    }
   }
 
+  if (!distPath) {
+    console.error(`[serveStatic] Could not find build directory. Tried:`, possiblePaths);
+    // Don't throw - instead provide a helpful error route
+    app.use("*", (_req, res) => {
+      res.status(500).json({
+        error: "Static files not found",
+        message: "The application build files could not be located. Please ensure the build completed successfully.",
+        triedPaths: possiblePaths,
+      });
+    });
+    return;
+  }
+
+  console.log(`[serveStatic] Serving static files from: ${distPath}`);
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).json({
+        error: "Not found",
+        message: "The requested resource could not be found.",
+      });
+    }
   });
 }

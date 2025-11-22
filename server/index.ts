@@ -43,6 +43,30 @@ app.use(
 );
 app.use(express.urlencoded({ extended: false }));
 
+// For Vercel: ensure app is initialized before handling ANY requests
+// This MUST be before route registration
+if (isVercel) {
+  app.use(async (req, res, next) => {
+    try {
+      await initPromise;
+      if (initError) {
+        return res.status(500).json({ 
+          error: "Server initialization failed",
+          message: initError.message,
+          details: "The server failed to initialize. Check environment variables and database connection."
+        });
+      }
+      next();
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Server initialization error",
+        message: (error as Error).message,
+        details: "An error occurred during server initialization."
+      });
+    }
+  });
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -200,32 +224,12 @@ async function initializeApp() {
 // Start initialization
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
+  console.error("[Server] Error stack:", (error as Error).stack);
   if (!isVercel) {
     process.exit(1);
   }
+  // On Vercel, don't exit - let the middleware handle the error
 });
-
-// For Vercel: ensure app is initialized before handling requests
-if (isVercel) {
-  // Add middleware to wait for initialization
-  app.use(async (req, res, next) => {
-    try {
-      await initPromise;
-      if (initError) {
-        return res.status(500).json({ 
-          error: "Server initialization failed",
-          message: initError.message 
-        });
-      }
-      next();
-    } catch (error) {
-      res.status(500).json({ 
-        error: "Server initialization error",
-        message: (error as Error).message 
-      });
-    }
-  });
-}
 
 // Export the app for Vercel serverless functions
 // Vercel's @vercel/node will automatically handle Express apps
