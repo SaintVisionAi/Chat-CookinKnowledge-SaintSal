@@ -34,6 +34,9 @@ export function getSession() {
 
 export async function setupSimpleAuth(app: Express) {
   app.set("trust proxy", 1);
+
+  // Ensure JSON parsing middleware is applied
+  app.use(express.json());
   app.use(getSession());
 
   // Register endpoint
