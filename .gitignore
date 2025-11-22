@@ -64,11 +64,14 @@ create-user.sql
 drop-old-schema.sql
 reset-database.ts
 cookies.txt
-*.png
+# Image files (except favicon and app icons)
 *.jpg
 *.jpeg
 *.gif
 attached_assets/
+# Allow favicon and app icons
+!client/public/favicon.png
+!client/public/icon-*.png
 
 # Documentation/Notes (keep in repo but can be ignored if preferred)
 # Uncomment below to ignore these:
