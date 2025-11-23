@@ -7555,7 +7555,7 @@ var initPromise = (async () => {
   } catch (error) {
     initError = error;
     console.error("[Server] Initialization failed:", error);
-    throw error;
+    console.error("[Server] Error stack:", error.stack);
   }
 })();
 app.use(
@@ -7617,8 +7617,20 @@ app.use((req, res, next) => {
 });
 async function initializeApp() {
   console.log("[Server] Initializing Vercel serverless function...");
-  await registerRoutes(app);
-  console.log("[Server] \u2705 API routes registered");
+  try {
+    await registerRoutes(app);
+    console.log("[Server] \u2705 API routes registered");
+  } catch (error) {
+    console.error("[Server] Error registering routes:", error);
+    app.get("/api/health", (req, res) => {
+      res.json({
+        status: "degraded",
+        message: "Some features may be unavailable",
+        error: error.message
+      });
+    });
+    throw error;
+  }
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -7634,6 +7646,12 @@ async function initializeApp() {
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
   console.error("[Server] Error stack:", error.stack);
+});
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Server] Unhandled Rejection at:", promise, "reason:", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("[Server] Uncaught Exception:", error);
 });
 var index_vercel_default = app;
 export {

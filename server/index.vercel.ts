@@ -139,10 +139,24 @@ async function initializeApp() {
   console.log("[Server] ✅ Initialization complete");
 }
 
-// Start initialization
+// Start initialization - catch any unhandled errors
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
   console.error("[Server] Error stack:", (error as Error).stack);
+  // Don't let unhandled promise rejections crash the function
+  // The middleware will handle returning errors to clients
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't crash - let the middleware handle it
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('[Server] Uncaught Exception:', error);
+  // Don't crash - return error response instead
 });
 
 // Export the app for Vercel serverless functions
