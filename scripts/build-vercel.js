@@ -62,13 +62,12 @@ try {
     format: 'esm',
     outfile: 'api/index.js',
     external: [...externalPackages, ...nodeBuiltins],
-    // Do NOT use packages: 'external' - this would externalize everything including vite
+    // Mark all Node.js built-ins as external
+    packages: 'external', // Externalize all node_modules - only bundle our code
     sourcemap: false,
     minify: false, // Don't minify for better error messages
     logLevel: 'info',
-    banner: {
-      js: '// @ts-nocheck\n',
-    },
+    // Don't add banner - let Node.js handle requires natively
   });
   
   console.log('[Build] ✅ Vercel serverless function built successfully');
