@@ -42,11 +42,16 @@ export async function setupSimpleAuth(app: Express) {
   // Register endpoint
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      const { firstName, lastName, email, phone, password } = req.body;
+      const { name, email, phone, password } = req.body;
 
-      if (!firstName || !lastName || !email || !phone || !password) {
+      if (!name || !email || !phone || !password) {
         return res.status(400).json({ error: "All fields are required: name, email, phone, and password" });
       }
+
+      // Split name into firstName and lastName
+      const nameParts = name.trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
 
       // Validate phone format (basic validation)
       const phoneRegex = /^[\d\s\-\+\(\)]+$/;
