@@ -193,55 +193,56 @@ async function initializeApp() {
 
   // Serve static files AFTER API routes
   // This ensures API routes take precedence, and static files are a fallback
-  try {
-    // Import vite.ts dynamically to avoid bundling Vite/Rollup on Vercel
-    console.log('[Server] Attempting to import vite module...');
-    const { setupVite, serveStatic, log } = await import("./vite.js");
-    console.log('[Server] Vite module imported successfully');
-    
-    if (isVercel) {
-      // On Vercel, ONLY serve static files - never use Vite
-      console.log('[Server] Vercel detected - serving static files');
-      serveStatic(app);
-    } else {
-    // Check if we're in development mode by looking for build directory
-    const fs = await import("fs");
-    const path = await import("path");
-    const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
-    const hasBuild = fs.existsSync(distPath);
-    
-    // Use Vite dev server if no build exists OR if explicitly in dev mode
-    const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
-    
-    log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
-    log(`[Server] Build exists: ${hasBuild}`);
-    log(`[Server] isDevelopment: ${isDevelopment}`);
-    log(`[Server] Using ${isDevelopment ? 'Vite dev server' : 'static build'}`);
-    
-    if (isDevelopment) {
-      // In local development, use Vite dev server
-      await setupVite(app, server);
-    } else {
-      // In local production, serve static build
-      serveStatic(app);
+  if (isVercel) {
+    // On Vercel, use the static-only module (no Vite/Rollup dependencies)
+    console.log('[Server] Vercel detected - using static file server');
+    const { serveStatic } = await import("./static.js");
+    serveStatic(app);
+  } else {
+    // Local development or production: use vite.ts
+    try {
+      console.log('[Server] Loading vite module for local development...');
+      const { setupVite, serveStatic, log } = await import("./vite.js");
+      console.log('[Server] Vite module loaded successfully');
+      
+      // Check if we're in development mode by looking for build directory
+      const fs = await import("fs");
+      const path = await import("path");
+      const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+      const hasBuild = fs.existsSync(distPath);
+      
+      // Use Vite dev server if no build exists OR if explicitly in dev mode
+      const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
+      
+      log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
+      log(`[Server] Build exists: ${hasBuild}`);
+      log(`[Server] isDevelopment: ${isDevelopment}`);
+      log(`[Server] Using ${isDevelopment ? 'Vite dev server' : 'static build'}`);
+      
+      if (isDevelopment) {
+        // In local development, use Vite dev server
+        await setupVite(app, server);
+      } else {
+        // In local production, serve static build
+        serveStatic(app);
+      }
+    } catch (error) {
+      console.error('[Server] Error loading vite module:', error);
+      // Fallback: serve a basic error page
+      app.use("*", (_req, res) => {
+        res.status(500).send(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>Server Error</title></head>
+            <body>
+              <h1>Server Configuration Error</h1>
+              <p>The server failed to initialize properly. Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+              <pre>${error instanceof Error ? error.stack : ''}</pre>
+            </body>
+          </html>
+        `);
+      });
     }
-  }
-  } catch (error) {
-    console.error('[Server] Error importing or using vite module:', error);
-    // Fallback: serve a basic error page
-    app.use("*", (_req, res) => {
-      res.status(500).send(`
-        <!DOCTYPE html>
-        <html>
-          <head><title>Server Error</title></head>
-          <body>
-            <h1>Server Configuration Error</h1>
-            <p>The server failed to initialize properly. Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
-            <pre>${error instanceof Error ? error.stack : ''}</pre>
-          </body>
-        </html>
-      `);
-    });
   }
 
   // Only start listening if NOT on Vercel (serverless functions don't need this)
