@@ -104,8 +104,21 @@ app.use((req, res, next) => {
 });
 
 async function initializeApp() {
-  // ✅ Register API routes FIRST (includes setupAuth with simple email/password)
-  await registerRoutes(app);
+  try {
+    // ✅ Register API routes FIRST (includes setupAuth with simple email/password)
+    await registerRoutes(app);
+  } catch (error) {
+    console.error("[initializeApp] Error registering routes:", error);
+    // Don't throw - let the app continue with basic functionality
+    // Add a basic health check route
+    app.get("/api/health", (req, res) => {
+      res.json({ 
+        status: "degraded", 
+        message: "Some features may be unavailable",
+        error: (error as Error).message 
+      });
+    });
+  }
 
   // Setup WebSocket server (only if not on Vercel - WebSockets don't work in serverless)
   if (!isVercel) {
@@ -187,8 +200,11 @@ async function initializeApp() {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Don't throw after sending response - this crashes serverless functions!
+    // Just log the error and send response
+    console.error("[Error Handler]", err);
     res.status(status).json({ message });
-    throw err;
+    // Removed: throw err; - This was causing FUNCTION_INVOCATION_FAILED
   });
 
   // Serve static files AFTER API routes

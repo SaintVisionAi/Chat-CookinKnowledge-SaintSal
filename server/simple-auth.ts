@@ -4,17 +4,40 @@ import bcrypt from "bcryptjs";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import memorystore from "memorystore";
 import { storage } from "./storage";
 
 // Export the session store for WebSocket authentication
 const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
 const pgStore = connectPg(session);
-export const sessionStore = new pgStore({
-  conString: process.env.DATABASE_URL,
-  createTableIfMissing: false,
-  ttl: sessionTtl,
-  tableName: "sessions",
-});
+const MemoryStore = memorystore(session);
+
+// Create session store safely - handle missing DATABASE_URL
+let sessionStore: any;
+try {
+  if (!process.env.DATABASE_URL) {
+    console.warn("[simple-auth] DATABASE_URL not set, using memory store fallback");
+    // Use memory store as fallback if DATABASE_URL is missing
+    sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    });
+  } else {
+    sessionStore = new pgStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: false,
+      ttl: sessionTtl,
+      tableName: "sessions",
+    });
+  }
+} catch (error) {
+  console.error("[simple-auth] Failed to create session store:", error);
+  // Fallback to memory store
+  sessionStore = new MemoryStore({
+    checkPeriod: 86400000,
+  });
+}
+
+export { sessionStore };
 
 export function getSession() {
   const isProduction = process.env.NODE_ENV === "production" || process.env.REPL_ID;
