@@ -193,14 +193,17 @@ async function initializeApp() {
 
   // Serve static files AFTER API routes
   // This ensures API routes take precedence, and static files are a fallback
-  // Import vite.ts dynamically to avoid bundling Vite/Rollup on Vercel
-  const { setupVite, serveStatic, log } = await import("./vite");
-  
-  if (isVercel) {
-    // On Vercel, ONLY serve static files - never use Vite
-    console.log('[Server] Vercel detected - serving static files');
-    serveStatic(app);
-  } else {
+  try {
+    // Import vite.ts dynamically to avoid bundling Vite/Rollup on Vercel
+    console.log('[Server] Attempting to import vite module...');
+    const { setupVite, serveStatic, log } = await import("./vite.js");
+    console.log('[Server] Vite module imported successfully');
+    
+    if (isVercel) {
+      // On Vercel, ONLY serve static files - never use Vite
+      console.log('[Server] Vercel detected - serving static files');
+      serveStatic(app);
+    } else {
     // Check if we're in development mode by looking for build directory
     const fs = await import("fs");
     const path = await import("path");
@@ -222,6 +225,23 @@ async function initializeApp() {
       // In local production, serve static build
       serveStatic(app);
     }
+  }
+  } catch (error) {
+    console.error('[Server] Error importing or using vite module:', error);
+    // Fallback: serve a basic error page
+    app.use("*", (_req, res) => {
+      res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>Server Error</title></head>
+          <body>
+            <h1>Server Configuration Error</h1>
+            <p>The server failed to initialize properly. Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+            <pre>${error instanceof Error ? error.stack : ''}</pre>
+          </body>
+        </html>
+      `);
+    });
   }
 
   // Only start listening if NOT on Vercel (serverless functions don't need this)
