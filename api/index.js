@@ -4097,8 +4097,16 @@ async function registerRoutes(app2) {
 init_websocket();
 var app = express3();
 var server = createServer(app);
-var isVercel = !!process.env.VERCEL;
+var isVercel = !!process.env.VERCEL || !!process.env.VERCEL_ENV;
 var isServerless = process.env.VERCEL && process.env.VERCEL_ENV && !process.env.VERCEL_NODE_RUNTIME;
+if (isVercel && (process.env.VERCEL || process.env.VERCEL_ENV)) {
+  Object.defineProperty(global, "vite", {
+    get: () => {
+      throw new Error("Vite is not available on Vercel - use static file serving instead");
+    },
+    configurable: false
+  });
+}
 var isInitialized = false;
 var initError = null;
 var initPromise = (async () => {
@@ -4271,8 +4279,11 @@ async function initializeApp() {
     serveStatic2(app);
   } else {
     try {
-      if (process.env.VERCEL) {
-        throw new Error("Vite should not be imported on Vercel - this is a safety check");
+      if (process.env.VERCEL || process.env.VERCEL_ENV) {
+        console.error("[Server] CRITICAL: Attempted to import vite on Vercel - using static fallback");
+        const { serveStatic: serveStatic3 } = await Promise.resolve().then(() => (init_static(), static_exports));
+        serveStatic3(app);
+        return;
       }
       console.log("[Server] Loading vite module for local development...");
       const { setupVite, serveStatic: serveStatic2, log } = await import("./vite.js");

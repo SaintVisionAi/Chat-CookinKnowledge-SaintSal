@@ -19,8 +19,20 @@ const server = createServer(app);
 // NOTE: Vercel Node.js runtime DOES support WebSockets (not serverless functions)
 // We only disable WebSockets if we detect we're in a true serverless environment
 // Vercel's Node.js runtime with @vercel/node builder supports persistent connections
-const isVercel = !!process.env.VERCEL;
+const isVercel = !!process.env.VERCEL || !!process.env.VERCEL_ENV;
 const isServerless = process.env.VERCEL && process.env.VERCEL_ENV && !process.env.VERCEL_NODE_RUNTIME;
+
+// CRITICAL: Ensure we NEVER import Vite/Rollup on Vercel
+// This prevents the @rollup/rollup-linux-x64-gnu error
+if (isVercel && (process.env.VERCEL || process.env.VERCEL_ENV)) {
+  // Override any potential vite imports
+  Object.defineProperty(global, 'vite', {
+    get: () => {
+      throw new Error('Vite is not available on Vercel - use static file serving instead');
+    },
+    configurable: false,
+  });
+}
 
 // Track initialization state
 let isInitialized = false;
@@ -252,9 +264,12 @@ async function initializeApp() {
     // Local development ONLY: use vite.ts
     // This code path should NEVER execute on Vercel
     try {
-      // Double-check we're not on Vercel before importing vite
-      if (process.env.VERCEL) {
-        throw new Error('Vite should not be imported on Vercel - this is a safety check');
+      // Triple-check we're not on Vercel before importing vite
+      if (process.env.VERCEL || process.env.VERCEL_ENV) {
+        console.error('[Server] CRITICAL: Attempted to import vite on Vercel - using static fallback');
+        const { serveStatic } = await import("./static.js");
+        serveStatic(app);
+        return; // Exit early, don't try to import vite
       }
       console.log('[Server] Loading vite module for local development...');
       const { setupVite, serveStatic, log } = await import("./vite.js");

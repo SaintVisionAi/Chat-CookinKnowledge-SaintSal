@@ -98,10 +98,21 @@ try {
       setup(build) {
         // Mark vite.ts as external so it's never bundled
         build.onResolve({ filter: /^\.\/vite\.(js|ts)$/ }, () => {
-          return { external: true };
+          return { external: true, sideEffects: false };
         });
         build.onResolve({ filter: /^\.\.\/vite\.config/ }, () => {
-          return { external: true };
+          return { external: true, sideEffects: false };
+        });
+        // Also exclude any imports of 'vite' package
+        build.onResolve({ filter: /^vite$/ }, () => {
+          return { external: true, sideEffects: false };
+        });
+        // Exclude rollup packages
+        build.onResolve({ filter: /^rollup/ }, () => {
+          return { external: true, sideEffects: false };
+        });
+        build.onResolve({ filter: /^@rollup\// }, () => {
+          return { external: true, sideEffects: false };
         });
       },
     }],
