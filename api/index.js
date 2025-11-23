@@ -14,8 +14,8 @@ console.log('[Vercel] Environment:', {
 // Add error logging for module import failures
 let app;
 try {
-  console.log('[Vercel] Importing Express app from ../dist/index.js...');
-  const module = await import('../dist/index.js');
+  console.log('[Vercel] Importing Express app from ../dist/index.vercel.js...');
+  const module = await import('../dist/index.vercel.js');
   app = module.default;
   console.log('[Vercel] ✅ Successfully imported Express app');
   

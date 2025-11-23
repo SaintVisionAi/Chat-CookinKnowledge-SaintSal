@@ -1,0 +1,133 @@
+// Vercel-specific server entry point
+// This file NEVER imports vite.ts to avoid Rollup being bundled
+import "dotenv/config";
+import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
+import { registerRoutes } from "./routes";
+import { serveStatic } from "./static";
+
+declare module "http" {
+  interface IncomingMessage {
+    rawBody: unknown;
+  }
+}
+
+const app = express();
+const server = createServer(app);
+
+// Track initialization state
+let isInitialized = false;
+let initError: Error | null = null;
+const initPromise = (async () => {
+  try {
+    await initializeApp();
+    isInitialized = true;
+  } catch (error) {
+    initError = error as Error;
+    console.error("[Server] Initialization failed:", error);
+    throw error;
+  }
+})();
+
+// Middleware setup (synchronous, outside async function)
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+app.use(express.urlencoded({ extended: false }));
+
+// Vercel: ensure app is initialized before handling ANY requests
+app.use(async (req, res, next) => {
+  try {
+    await initPromise;
+    if (initError) {
+      return res.status(500).json({ 
+        error: "Server initialization failed",
+        message: initError.message,
+        details: "The server failed to initialize. Check environment variables and database connection."
+      });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ 
+      error: "Server initialization error",
+      message: (error as Error).message,
+      details: "An error occurred during server initialization."
+    });
+  }
+});
+
+// Request logging
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      const formattedTime = new Date().toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+      
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
+      console.log(`${formattedTime} [express] ${logLine}`);
+    }
+  });
+
+  next();
+});
+
+async function initializeApp() {
+  console.log("[Server] Initializing Vercel serverless function...");
+  
+  // Register API routes
+  await registerRoutes(app);
+  console.log("[Server] ✅ API routes registered");
+
+  // Global error handler
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    console.error(`[Server] Error ${status}:`, message);
+    console.error(err.stack);
+    res.status(status).json({ message });
+    throw err;
+  });
+
+  // Serve static files - NO VITE IMPORTS
+  console.log("[Server] Setting up static file serving...");
+  serveStatic(app);
+  console.log("[Server] ✅ Static files configured");
+  
+  console.log("[Server] ✅ Initialization complete");
+}
+
+// Start initialization
+initPromise.catch((error) => {
+  console.error("[Server] Fatal initialization error:", error);
+  console.error("[Server] Error stack:", (error as Error).stack);
+});
+
+// Export the app for Vercel serverless functions
+export default app;
