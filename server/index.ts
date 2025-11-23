@@ -98,7 +98,21 @@ app.use((req, res, next) => {
 });
 
 async function initializeApp() {
-  // ✅ Register API routes (includes setupAuth with Replit OIDC)
+  // Check if we're in development mode by looking for build directory
+  const fs = await import("fs");
+  const path = await import("path");
+  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+  const hasBuild = fs.existsSync(distPath);
+  
+  // Use Vite dev server if no build exists OR if explicitly in dev mode
+  const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
+  
+  console.log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
+  console.log(`[Server] Build exists: ${hasBuild}`);
+  console.log(`[Server] isDevelopment: ${isDevelopment}`);
+  console.log(`[Server] Using ${isDevelopment ? 'Vite dev server' : 'static build'}`);
+
+  // ✅ Register API routes FIRST (includes setupAuth with simple email/password)
   await registerRoutes(app);
 
   // Setup WebSocket server (only if not on Vercel - WebSockets don't work in serverless)
@@ -185,30 +199,13 @@ async function initializeApp() {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  
-  // Check if we're in development mode by looking for build directory
-  // This works around NODE_ENV being set in Replit Secrets
-  const fs = await import("fs");
-  const path = await import("path");
-  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
-  const hasBuild = fs.existsSync(distPath);
-  
-  // Use Vite dev server if no build exists OR if explicitly in dev mode
-  const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
-  
-  console.log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
-  console.log(`[Server] Build exists: ${hasBuild}`);
-  console.log(`[Server] isDevelopment: ${isDevelopment}`);
-  console.log(`[Server] Using ${isDevelopment ? 'Vite dev server' : 'static build'}`);
-  
+  // Serve static files AFTER API routes
+  // This ensures API routes take precedence, and static files are a fallback
   if (isDevelopment && !isVercel) {
-    // Only use Vite dev server in local development, not on Vercel
+    // In local development, use Vite dev server
     await setupVite(app, server);
   } else {
-    // On Vercel or production, serve static files
+    // In production (including Vercel), serve static build
     serveStatic(app);
   }
 
