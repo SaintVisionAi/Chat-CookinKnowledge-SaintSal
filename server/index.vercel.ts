@@ -25,7 +25,9 @@ const initPromise = (async () => {
   } catch (error) {
     initError = error as Error;
     console.error("[Server] Initialization failed:", error);
-    throw error;
+    console.error("[Server] Error stack:", (error as Error).stack);
+    // Don't throw - let middleware handle the error gracefully
+    // This prevents the serverless function from crashing
   }
 })();
 
@@ -101,9 +103,22 @@ app.use((req, res, next) => {
 async function initializeApp() {
   console.log("[Server] Initializing Vercel serverless function...");
   
-  // Register API routes
-  await registerRoutes(app);
-  console.log("[Server] ✅ API routes registered");
+  try {
+    // Register API routes
+    await registerRoutes(app);
+    console.log("[Server] ✅ API routes registered");
+  } catch (error) {
+    console.error("[Server] Error registering routes:", error);
+    // Don't throw - add a basic health check route instead
+    app.get("/api/health", (req, res) => {
+      res.json({ 
+        status: "degraded", 
+        message: "Some features may be unavailable",
+        error: (error as Error).message 
+      });
+    });
+    throw error; // Still throw to mark initialization as failed
+  }
 
   // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
