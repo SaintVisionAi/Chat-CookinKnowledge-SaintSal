@@ -1,10 +1,10 @@
 // SSE (Server-Sent Events) streaming endpoint for Vercel serverless
 // This replaces WebSocket functionality for serverless environments
 import type { Request, Response } from "express";
-import { storage } from "../storage";
-import { orchestrator } from "../providers/orchestrator";
-import { getSaintSalPrompt } from "../providers/saintsal-prompt";
-import { checkMessageLimit, incrementMessageCount } from "../tier-limits";
+import { storage } from "../storage.js";
+import { orchestrator } from "../providers/orchestrator.js";
+import { getSaintSalPrompt } from "../providers/saintsal-prompt.js";
+import { checkMessageLimit, incrementMessageCount } from "../tier-limits.js";
 
 // SSE helper to send data
 function sendSSE(res: Response, event: string, data: any) {
@@ -158,7 +158,7 @@ export async function handleStreamingChat(req: Request, res: Response) {
 
       // Update conversation memory for RAG
       try {
-        const { updateConversationMemory } = await import('../websocket');
+        const { updateConversationMemory } = await import('../websocket.js');
         await updateConversationMemory(
           finalConversationId,
           messages,

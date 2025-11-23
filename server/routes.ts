@@ -1,6 +1,6 @@
 // Reference: javascript_log_in_with_replit, javascript_openai_ai_integrations, javascript_anthropic_ai_integrations blueprints
 import type { Express, Request, Response } from "express";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import {
   insertConversationSchema,
   insertMessageSchema,
@@ -10,10 +10,10 @@ import {
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { fileProcessor } from "./fileprocessor";
+import { fileProcessor } from "./fileprocessor.js";
 import multer from "multer";
 // Use simple email/password authentication
-import { setupSimpleAuth, isAuthenticated } from "./simple-auth";
+import { setupSimpleAuth, isAuthenticated } from "./simple-auth.js";
 
 // Initialize AI clients only if API keys are available
 let anthropic: Anthropic | null = null;
@@ -51,7 +51,7 @@ export async function registerRoutes(app: Express) {
   await setupSimpleAuth(app);
 
   // ✅ SSE Streaming endpoint (replaces WebSocket for serverless)
-  const { handleStreamingChat } = await import('./routes/streaming');
+  const { handleStreamingChat } = await import('./routes/streaming.js');
   app.post('/api/chat/stream', isAuthenticated, handleStreamingChat);
 
   // Conversations (protected by isAuthenticated)
@@ -434,7 +434,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // ✅ IMAGE GENERATION ROUTES
-  import('./routes/image-generation').then((module) => {
+  import('./routes/image-generation.js').then((module) => {
     app.use('/api/images', module.default);
     console.log('[Routes] Image generation endpoints registered');
   }).catch((error) => {

@@ -1,6 +1,7 @@
 // Custom build script for Vercel deployment
 // Bundles the server code while externalizing ONLY the packages that should be installed in production
 import { build } from 'esbuild';
+import { readFileSync, writeFileSync } from 'fs';
 
 console.log('[Build] Building Vercel serverless function...');
 
@@ -67,8 +68,44 @@ try {
     sourcemap: false,
     minify: false, // Don't minify for better error messages
     logLevel: 'info',
-    // Don't add banner - let Node.js handle requires natively
+    // Ensure imports are resolved correctly for ESM
+    mainFields: ['module', 'main'],
+    resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
   });
+  
+  // Post-process the bundle to fix any directory imports
+  // This fixes the ERR_UNSUPPORTED_DIR_IMPORT error
+  console.log('[Build] Post-processing bundle to fix directory imports...');
+  let code = readFileSync('api/index.js', 'utf-8');
+  const originalCode = code;
+  
+  // Fix directory imports: from "./routes" -> from "./routes.js"
+  // Match imports like: from "./routes" or from '../routes' but not from "./routes.js"
+  code = code.replace(
+    /from\s+['"](\.[^'"]*\/routes)(?!\.js)(?!\.ts)['"]/g,
+    (match, path) => {
+      return `from "${path}.js"`;
+    }
+  );
+  
+  // Also fix other common relative imports that might be missing extensions
+  // This regex matches relative imports without extensions
+  code = code.replace(
+    /from\s+['"](\.[^'"]+)(?!\.js)(?!\.ts)(?!\.json)(?!\.mjs)['"]/g,
+    (match, path) => {
+      // Only fix if it's a local file import (starts with ./ or ../)
+      // and doesn't already have an extension
+      if (path.match(/^\.\.?\/[^/]+$/)) {
+        return `from "${path}.js"`;
+      }
+      return match;
+    }
+  );
+  
+  if (code !== originalCode) {
+    writeFileSync('api/index.js', code);
+    console.log('[Build] ✅ Fixed directory imports in bundled output');
+  }
   
   console.log('[Build] ✅ Vercel serverless function built successfully');
   console.log('[Build] Output: api/index.js');

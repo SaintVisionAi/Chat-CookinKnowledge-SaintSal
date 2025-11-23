@@ -9,6 +9,41 @@ var __export = (target, all) => {
 };
 
 // shared/schema.ts
+var schema_exports = {};
+__export(schema_exports, {
+  apiEnvironments: () => apiEnvironments,
+  apiEnvironmentsRelations: () => apiEnvironmentsRelations,
+  apiRequestHistory: () => apiRequestHistory,
+  apiRequestHistoryRelations: () => apiRequestHistoryRelations,
+  chatModeEnum: () => chatModeEnum,
+  conversations: () => conversations,
+  conversationsRelations: () => conversationsRelations,
+  environmentVariables: () => environmentVariables,
+  environmentVariablesRelations: () => environmentVariablesRelations,
+  insertApiEnvironmentSchema: () => insertApiEnvironmentSchema,
+  insertApiRequestHistorySchema: () => insertApiRequestHistorySchema,
+  insertConversationSchema: () => insertConversationSchema,
+  insertEnvironmentVariableSchema: () => insertEnvironmentVariableSchema,
+  insertMessageSchema: () => insertMessageSchema,
+  insertOrganizationMemberSchema: () => insertOrganizationMemberSchema,
+  insertOrganizationSchema: () => insertOrganizationSchema,
+  insertTeamMemorySchema: () => insertTeamMemorySchema,
+  insertVerifiedDomainSchema: () => insertVerifiedDomainSchema,
+  messages: () => messages,
+  messagesRelations: () => messagesRelations,
+  organizationMembers: () => organizationMembers,
+  organizationMembersRelations: () => organizationMembersRelations,
+  organizations: () => organizations,
+  organizationsRelations: () => organizationsRelations,
+  sessions: () => sessions,
+  teamMemory: () => teamMemory,
+  teamMemoryRelations: () => teamMemoryRelations,
+  userRoleEnum: () => userRoleEnum,
+  users: () => users,
+  usersRelations: () => usersRelations,
+  verifiedDomains: () => verifiedDomains,
+  verifiedDomainsRelations: () => verifiedDomainsRelations
+});
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import {
@@ -467,6 +502,13 @@ var init_storage = __esm({
 });
 
 // server/simple-auth.ts
+var simple_auth_exports = {};
+__export(simple_auth_exports, {
+  getSession: () => getSession,
+  isAuthenticated: () => isAuthenticated,
+  sessionStore: () => sessionStore,
+  setupSimpleAuth: () => setupSimpleAuth
+});
 import crypto2 from "crypto";
 import bcrypt from "bcryptjs";
 import express from "express";
@@ -482,9 +524,9 @@ function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isProduction,
+      secure: isProduction === true || isProduction === "true",
       // Secure cookies in production
-      sameSite: isProduction ? "strict" : "lax",
+      sameSite: isProduction === true || isProduction === "true" ? "strict" : "lax",
       maxAge: sessionTtl
     }
   });
@@ -680,7 +722,7 @@ var init_gemini = __esm({
       /**
        * Process image with Gemini Vision API
        */
-      async processImage(imageData, prompt, ws2, options = {}) {
+      async processImage(imageData, prompt, ws3, options = {}) {
         if (!this.client) {
           throw new Error("Gemini API key not configured");
         }
@@ -723,7 +765,7 @@ var init_gemini = __esm({
           for await (const chunk of result.stream) {
             const chunkText = chunk.text();
             fullResponse += chunkText;
-            ws2.send(JSON.stringify({
+            ws3.send(JSON.stringify({
               type: "chunk",
               content: chunkText
             }));
@@ -737,7 +779,7 @@ var init_gemini = __esm({
       /**
        * Stream chat response with Gemini
        */
-      async streamChat(messages2, ws2, options = {}) {
+      async streamChat(messages2, ws3, options = {}) {
         if (!this.client) {
           throw new Error("Gemini API key not configured");
         }
@@ -765,7 +807,7 @@ var init_gemini = __esm({
           for await (const chunk of result.stream) {
             const chunkText = chunk.text();
             fullResponse += chunkText;
-            ws2.send(JSON.stringify({
+            ws3.send(JSON.stringify({
               type: "chunk",
               content: chunkText
             }));
@@ -781,133 +823,102 @@ var init_gemini = __esm({
   }
 });
 
-// server/routes/image-generation.ts
-var image_generation_exports = {};
-__export(image_generation_exports, {
-  default: () => image_generation_default
+// server/providers/grok.ts
+var grok_exports = {};
+__export(grok_exports, {
+  GrokProvider: () => GrokProvider,
+  grok: () => grok
 });
-import { Router } from "express";
-var router, image_generation_default;
-var init_image_generation = __esm({
-  "server/routes/image-generation.ts"() {
+var GrokProvider, grok;
+var init_grok = __esm({
+  "server/providers/grok.ts"() {
     "use strict";
-    init_simple_auth();
-    router = Router();
-    router.post("/dalle", isAuthenticated, async (req, res) => {
-      try {
-        const { prompt, size = "1024x1024", quality = "standard" } = req.body;
-        if (!prompt) {
-          return res.status(400).json({ error: "Prompt is required" });
-        }
-        const OpenAI2 = await import("openai");
-        const openai2 = new OpenAI2.default({
-          apiKey: process.env.OPENAI_API_KEY
-        });
-        if (!process.env.OPENAI_API_KEY) {
-          return res.status(503).json({ error: "DALL-E service not available. Please configure OPENAI_API_KEY." });
-        }
-        console.log("[DALL-E] Generating image:", { prompt: prompt.substring(0, 50), size, quality });
-        const response = await openai2.images.generate({
-          model: "dall-e-3",
-          prompt,
-          n: 1,
-          size,
-          quality
-        });
-        const imageUrl = response.data?.[0]?.url;
-        if (!imageUrl) {
-          return res.status(500).json({ error: "Failed to generate image" });
-        }
-        console.log("[DALL-E] Image generated successfully");
-        return res.json({
-          success: true,
-          imageUrl,
-          prompt,
-          model: "dall-e-3"
-        });
-      } catch (error) {
-        console.error("[DALL-E] Error:", error);
-        return res.status(500).json({
-          error: error.message || "Failed to generate image",
-          details: error.response?.data || error.toString()
-        });
+    GrokProvider = class {
+      apiKey;
+      baseUrl = "https://api.x.ai/v1";
+      constructor() {
+        this.apiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY || "";
       }
-    });
-    router.post("/grok", isAuthenticated, async (req, res) => {
-      try {
-        const { prompt, aspectRatio = "16:9" } = req.body;
-        if (!prompt) {
-          return res.status(400).json({ error: "Prompt is required" });
+      isAvailable() {
+        return !!this.apiKey;
+      }
+      /**
+       * Stream chat response with Grok
+       */
+      async streamChat(messages2, ws3, options = {}) {
+        if (!this.apiKey) {
+          throw new Error("Grok API key not configured");
         }
-        const apiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
-        if (!apiKey) {
-          return res.status(503).json({ error: "Grok service not available. Please configure XAI_API_KEY or GROK_API_KEY." });
-        }
-        console.log("[Grok Image] Generating image:", { prompt: prompt.substring(0, 50), aspectRatio });
-        const response = await fetch("https://api.x.ai/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "aurora",
-            prompt,
-            aspect_ratio: aspectRatio
-          })
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("[Grok Image] API Error:", response.status, errorText);
-          return res.status(response.status).json({
-            error: `Grok API error: ${response.status}`,
-            details: errorText
+        const {
+          model = "grok-2-latest",
+          temperature = 0.7,
+          maxTokens = 4096,
+          stream = true
+        } = options;
+        try {
+          const response = await fetch(`${this.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${this.apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model,
+              messages: messages2,
+              temperature,
+              max_tokens: maxTokens,
+              stream
+            })
           });
+          if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Grok API error: ${response.status} - ${error}`);
+          }
+          if (!stream) {
+            const data = await response.json();
+            const content = data.choices[0].message.content;
+            ws3.send(JSON.stringify({ type: "chunk", content }));
+            return content;
+          }
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          let fullResponse = "";
+          let buffer = "";
+          if (!reader) throw new Error("No response body");
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+              const data = trimmed.slice(6);
+              if (data === "[DONE]") break;
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  fullResponse += content;
+                  ws3.send(JSON.stringify({
+                    type: "chunk",
+                    content
+                  }));
+                }
+              } catch (e) {
+                console.error("Grok JSON parse error:", e, "Data:", data);
+              }
+            }
+          }
+          return fullResponse;
+        } catch (error) {
+          console.error("Grok chat error:", error);
+          throw error;
         }
-        const data = await response.json();
-        const imageUrl = data.data?.[0]?.url;
-        if (!imageUrl) {
-          return res.status(500).json({ error: "Failed to generate image - no URL returned" });
-        }
-        console.log("[Grok Image] Image generated successfully");
-        return res.json({
-          success: true,
-          imageUrl,
-          prompt,
-          model: "aurora"
-        });
-      } catch (error) {
-        console.error("[Grok Image] Error:", error);
-        return res.status(500).json({
-          error: error.message || "Failed to generate image",
-          details: error.toString()
-        });
       }
-    });
-    router.post("/gemini", isAuthenticated, async (req, res) => {
-      try {
-        const { prompt } = req.body;
-        if (!prompt) {
-          return res.status(400).json({ error: "Prompt is required" });
-        }
-        const { gemini: gemini2 } = await Promise.resolve().then(() => (init_gemini(), gemini_exports));
-        if (!gemini2.isAvailable()) {
-          return res.status(503).json({ error: "Gemini service not available. Please configure GEMINI_API_KEY." });
-        }
-        console.log("[Gemini Image] Generating image:", prompt.substring(0, 50));
-        return res.status(503).json({
-          error: "Gemini image generation coming soon! Use DALL-E for now.",
-          suggestion: "Try DALL-E 3 for high-quality image generation"
-        });
-      } catch (error) {
-        console.error("[Gemini Image] Error:", error);
-        return res.status(500).json({
-          error: error.message || "Failed to generate image",
-          details: error.toString()
-        });
-      }
-    });
-    image_generation_default = router;
+    };
+    grok = new GrokProvider();
   }
 });
 
@@ -986,11 +997,11 @@ var init_elevenlabs = __esm({
        * Stream text to speech with WebSocket support
        * Sends audio chunks as base64
        */
-      async streamTextToSpeech(text2, ws2, options = {}) {
+      async streamTextToSpeech(text2, ws3, options = {}) {
         const audioBuffer = await this.textToSpeech(text2, options);
         const base64Audio = audioBuffer.toString("base64");
         const mimeType = options.outputFormat?.startsWith("mp3") ? "audio/mpeg" : "audio/wav";
-        ws2.send(JSON.stringify({
+        ws3.send(JSON.stringify({
           type: "audio",
           content: `data:${mimeType};base64,${base64Audio}`
         }));
@@ -1128,17 +1139,2514 @@ var init_elevenlabs = __esm({
   }
 });
 
-// server/index.vercel.ts
-import "dotenv/config";
+// server/perplexity.ts
+var PerplexityClient, perplexity;
+var init_perplexity = __esm({
+  "server/perplexity.ts"() {
+    "use strict";
+    PerplexityClient = class {
+      apiKey;
+      baseUrl = "https://api.perplexity.ai";
+      constructor(apiKey) {
+        this.apiKey = apiKey || process.env.PERPLEXITY_API_KEY || "";
+        if (!this.apiKey) {
+          console.warn("\u26A0\uFE0F  PERPLEXITY_API_KEY not set - web search will not work");
+        }
+      }
+      /**
+       * Search the web with Perplexity AI and get cited, factual answers
+       */
+      async search(messages2, options = {}) {
+        if (!this.apiKey) {
+          throw new Error("PERPLEXITY_API_KEY is required for web search");
+        }
+        const {
+          model = "sonar-pro",
+          // Use sonar-pro for better quality (2025 model)
+          temperature = 0.2,
+          max_tokens = 2e3,
+          searchDomainFilter,
+          searchRecencyFilter = "month",
+          returnRelatedQuestions = true
+        } = options;
+        this.validateMessages(messages2);
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${this.apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model,
+            messages: messages2,
+            max_tokens,
+            temperature,
+            top_p: 0.9,
+            stream: false,
+            return_related_questions: returnRelatedQuestions,
+            search_recency_filter: searchRecencyFilter,
+            ...searchDomainFilter && { search_domain_filter: searchDomainFilter }
+          })
+        });
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`Perplexity API error: ${response.status} - ${error}`);
+        }
+        const data = await response.json();
+        return {
+          answer: data.choices[0].message.content,
+          citations: data.citations || [],
+          usage: {
+            promptTokens: data.usage.prompt_tokens,
+            completionTokens: data.usage.completion_tokens,
+            totalTokens: data.usage.total_tokens
+          }
+        };
+      }
+      /**
+       * Validate message format for Perplexity API
+       * After optional system message, roles must alternate user/assistant ending with user
+       */
+      validateMessages(messages2) {
+        if (messages2.length === 0) {
+          throw new Error("Messages array cannot be empty");
+        }
+        let startIdx = 0;
+        if (messages2[0].role === "system") {
+          startIdx = 1;
+        }
+        for (let i = startIdx; i < messages2.length; i++) {
+          const expectedRole = (i - startIdx) % 2 === 0 ? "user" : "assistant";
+          if (messages2[i].role !== expectedRole) {
+            throw new Error(
+              `Invalid message sequence: expected ${expectedRole} at position ${i}, got ${messages2[i].role}`
+            );
+          }
+        }
+        if (messages2[messages2.length - 1].role !== "user") {
+          throw new Error("Last message must be from user");
+        }
+      }
+      /**
+       * Format search results with citations for display
+       */
+      formatWithCitations(result) {
+        let formatted = result.answer;
+        if (result.citations.length > 0) {
+          formatted += "\n\n**Sources:**\n";
+          result.citations.forEach((citation, idx) => {
+            formatted += `${idx + 1}. ${citation}
+`;
+          });
+        }
+        if (result.relatedQuestions && result.relatedQuestions.length > 0) {
+          formatted += "\n**Related Questions:**\n";
+          result.relatedQuestions.forEach((q) => {
+            formatted += `- ${q}
+`;
+          });
+        }
+        return formatted;
+      }
+    };
+    perplexity = new PerplexityClient();
+  }
+});
+
+// server/providers/research.ts
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+var DeepResearch, deepResearch;
+var init_research = __esm({
+  "server/providers/research.ts"() {
+    "use strict";
+    DeepResearch = class {
+      anthropic = null;
+      openai = null;
+      constructor() {
+        if (process.env.ANTHROPIC_API_KEY) {
+          this.anthropic = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY
+          });
+        }
+        if (process.env.OPENAI_API_KEY) {
+          this.openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY
+          });
+        }
+      }
+      /**
+       * Perform deep research with chain-of-thought reasoning
+       */
+      async performResearch(question, ws3, options = {}) {
+        const {
+          model = "claude-3-opus-20240229",
+          maxSteps = 5,
+          temperature = 0.7
+        } = options;
+        const context = {
+          question,
+          steps: [],
+          sources: [],
+          confidence: 0
+        };
+        ws3.send(JSON.stringify({
+          type: "status",
+          message: "\u{1F52C} Starting deep research analysis..."
+        }));
+        await this.sendStep(ws3, "thinking", "Understanding the Question");
+        const understanding = await this.analyzeQuestion(question, model, temperature);
+        context.steps.push({
+          type: "thinking",
+          title: "Question Analysis",
+          content: understanding
+        });
+        await this.sendStep(ws3, "analysis", "Breaking down into components");
+        const subQuestions = await this.generateSubQuestions(question, understanding, model, temperature);
+        context.steps.push({
+          type: "analysis",
+          title: "Sub-questions",
+          content: subQuestions.join("\n")
+        });
+        await this.sendStep(ws3, "analysis", "Researching each component");
+        const subAnswers = [];
+        for (let i = 0; i < Math.min(subQuestions.length, maxSteps); i++) {
+          const subQ = subQuestions[i];
+          ws3.send(JSON.stringify({
+            type: "status",
+            message: `\u{1F4CA} Analyzing: ${subQ.substring(0, 50)}...`
+          }));
+          const answer = await this.researchSubQuestion(subQ, model, temperature);
+          subAnswers.push(answer);
+          ws3.send(JSON.stringify({
+            type: "chunk",
+            content: `
+
+### ${subQ}
+${answer}
+`
+          }));
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        await this.sendStep(ws3, "synthesis", "Cross-referencing findings");
+        const validation = await this.validateFindings(question, subAnswers, model, temperature);
+        context.steps.push({
+          type: "synthesis",
+          title: "Validation",
+          content: validation
+        });
+        await this.sendStep(ws3, "conclusion", "Synthesizing final analysis");
+        const synthesis = await this.synthesizeAnswer(question, subAnswers, validation, model, temperature);
+        context.steps.push({
+          type: "conclusion",
+          title: "Final Synthesis",
+          content: synthesis
+        });
+        const formattedResponse = this.formatResearchResponse(context, synthesis);
+        ws3.send(JSON.stringify({
+          type: "research_complete",
+          content: formattedResponse,
+          steps: context.steps,
+          confidence: this.calculateConfidence(context)
+        }));
+        return formattedResponse;
+      }
+      async sendStep(ws3, type, message) {
+        ws3.send(JSON.stringify({
+          type: "research_step",
+          stepType: type,
+          message: `${this.getStepEmoji(type)} ${message}`
+        }));
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      getStepEmoji(type) {
+        const emojis = {
+          thinking: "\u{1F914}",
+          analysis: "\u{1F50D}",
+          synthesis: "\u{1F517}",
+          conclusion: "\u2705"
+        };
+        return emojis[type] || "\u{1F4CB}";
+      }
+      async analyzeQuestion(question, model, temperature) {
+        const prompt = `Analyze this question in depth:
+    "${question}"
+
+    Provide:
+    1. What type of question this is (factual, analytical, creative, etc.)
+    2. Key concepts and terms involved
+    3. Potential complexities or nuances
+    4. What kind of answer would be most helpful`;
+        if (model.includes("claude") && this.anthropic) {
+          const response = await this.anthropic.messages.create({
+            model,
+            max_tokens: 500,
+            temperature,
+            messages: [{ role: "user", content: prompt }]
+          });
+          return response.content[0].type === "text" ? response.content[0].text : "";
+        } else if (this.openai) {
+          const response = await this.openai.chat.completions.create({
+            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            messages: [{ role: "user", content: prompt }],
+            temperature,
+            max_tokens: 500
+          });
+          return response.choices[0]?.message?.content || "";
+        }
+        return "Unable to analyze question - no AI provider available";
+      }
+      async generateSubQuestions(question, understanding, model, temperature) {
+        const prompt = `Based on this question: "${question}"
+    And this analysis: ${understanding}
+
+    Generate 3-5 specific sub-questions that, when answered, would provide a comprehensive response to the main question.
+    Format as a numbered list.`;
+        let response = "";
+        if (model.includes("claude") && this.anthropic) {
+          const result = await this.anthropic.messages.create({
+            model,
+            max_tokens: 400,
+            temperature,
+            messages: [{ role: "user", content: prompt }]
+          });
+          response = result.content[0].type === "text" ? result.content[0].text : "";
+        } else if (this.openai) {
+          const result = await this.openai.chat.completions.create({
+            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            messages: [{ role: "user", content: prompt }],
+            temperature,
+            max_tokens: 400
+          });
+          response = result.choices[0]?.message?.content || "";
+        }
+        const lines = response.split("\n");
+        const subQuestions = lines.filter((line) => /^\d+\./.test(line.trim())).map((line) => line.replace(/^\d+\.\s*/, "").trim());
+        return subQuestions.length > 0 ? subQuestions : [question];
+      }
+      async researchSubQuestion(subQuestion, model, temperature) {
+        const prompt = `Research and provide a detailed answer to: "${subQuestion}"
+    
+    Include:
+    - Key facts and evidence
+    - Multiple perspectives if relevant
+    - Any important caveats or limitations
+    - Be thorough but concise`;
+        if (model.includes("claude") && this.anthropic) {
+          const response = await this.anthropic.messages.create({
+            model,
+            max_tokens: 800,
+            temperature,
+            messages: [{ role: "user", content: prompt }]
+          });
+          return response.content[0].type === "text" ? response.content[0].text : "";
+        } else if (this.openai) {
+          const response = await this.openai.chat.completions.create({
+            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            messages: [{ role: "user", content: prompt }],
+            temperature,
+            max_tokens: 800
+          });
+          return response.choices[0]?.message?.content || "";
+        }
+        return "Unable to research sub-question";
+      }
+      async validateFindings(question, subAnswers, model, temperature) {
+        const prompt = `Cross-reference and validate these research findings for the question: "${question}"
+
+    Findings:
+    ${subAnswers.map((a, i) => `${i + 1}. ${a}`).join("\n\n")}
+
+    Identify:
+    1. Consistencies across findings
+    2. Any contradictions or conflicts
+    3. Gaps that still need addressing
+    4. Overall reliability assessment`;
+        if (model.includes("claude") && this.anthropic) {
+          const response = await this.anthropic.messages.create({
+            model,
+            max_tokens: 600,
+            temperature: temperature * 0.8,
+            // Lower temperature for validation
+            messages: [{ role: "user", content: prompt }]
+          });
+          return response.content[0].type === "text" ? response.content[0].text : "";
+        } else if (this.openai) {
+          const response = await this.openai.chat.completions.create({
+            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            messages: [{ role: "user", content: prompt }],
+            temperature: temperature * 0.8,
+            max_tokens: 600
+          });
+          return response.choices[0]?.message?.content || "";
+        }
+        return "Unable to validate findings";
+      }
+      async synthesizeAnswer(question, subAnswers, validation, model, temperature) {
+        const prompt = `Synthesize a comprehensive answer to: "${question}"
+
+    Based on these researched components:
+    ${subAnswers.map((a, i) => `Component ${i + 1}: ${a}`).join("\n\n")}
+
+    Validation notes:
+    ${validation}
+
+    Provide:
+    1. A clear, well-structured answer
+    2. Key insights and takeaways
+    3. Confidence level in the answer
+    4. Any important limitations or areas for further research`;
+        if (model.includes("claude") && this.anthropic) {
+          const response = await this.anthropic.messages.create({
+            model,
+            max_tokens: 1500,
+            temperature,
+            messages: [{ role: "user", content: prompt }]
+          });
+          return response.content[0].type === "text" ? response.content[0].text : "";
+        } else if (this.openai) {
+          const response = await this.openai.chat.completions.create({
+            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            messages: [{ role: "user", content: prompt }],
+            temperature,
+            max_tokens: 1500
+          });
+          return response.choices[0]?.message?.content || "";
+        }
+        return "Unable to synthesize answer";
+      }
+      calculateConfidence(context) {
+        const baseConfidence = Math.min(context.steps.length * 20, 80);
+        const hasValidation = context.steps.some((s) => s.type === "synthesis");
+        const hasSynthesis = context.steps.some((s) => s.type === "conclusion");
+        let confidence = baseConfidence;
+        if (hasValidation) confidence += 10;
+        if (hasSynthesis) confidence += 10;
+        return Math.min(confidence, 95);
+      }
+      formatResearchResponse(context, synthesis) {
+        const steps = context.steps.map((step) => `**${step.title}**
+${step.content}`).join("\n\n---\n\n");
+        return `# Deep Research Analysis
+
+## Question
+${context.question}
+
+## Research Process
+
+${steps}
+
+---
+
+## Final Synthesis
+
+${synthesis}
+
+---
+
+**Confidence Level**: ${this.calculateConfidence(context)}%
+**Research Depth**: ${context.steps.length} analytical steps
+**Methodology**: Chain-of-thought reasoning with cross-validation`;
+      }
+    };
+    deepResearch = new DeepResearch();
+  }
+});
+
+// server/providers/codeagent.ts
+var codeagent_exports = {};
+__export(codeagent_exports, {
+  CodeAgent: () => CodeAgent,
+  codeAgent: () => codeAgent
+});
+import Anthropic2 from "@anthropic-ai/sdk";
+import OpenAI2 from "openai";
+var CodeAgent, codeAgent;
+var init_codeagent = __esm({
+  "server/providers/codeagent.ts"() {
+    "use strict";
+    CodeAgent = class {
+      anthropic = null;
+      openai = null;
+      context;
+      constructor() {
+        if (process.env.ANTHROPIC_API_KEY) {
+          this.anthropic = new Anthropic2({
+            apiKey: process.env.ANTHROPIC_API_KEY
+          });
+        }
+        if (process.env.OPENAI_API_KEY) {
+          this.openai = new OpenAI2({
+            apiKey: process.env.OPENAI_API_KEY
+          });
+        }
+        this.context = {
+          files: /* @__PURE__ */ new Map(),
+          operations: [],
+          suggestions: []
+        };
+      }
+      /**
+       * Process a code-related request with multi-file context
+       */
+      async processCodeRequest(request, files, ws3, options = {}) {
+        const {
+          model = "claude-3-sonnet-20240229",
+          temperature = 0.3,
+          // Lower temperature for code
+          operation = "analyze"
+        } = options;
+        files.forEach((file) => {
+          this.context.files.set(file.path, file);
+        });
+        ws3.send(JSON.stringify({
+          type: "status",
+          message: "\u{1F527} Code Agent analyzing your request..."
+        }));
+        const operationType = this.determineOperation(request, operation);
+        switch (operationType) {
+          case "analyze":
+            return this.analyzeCode(request, ws3, model, temperature);
+          case "edit":
+            return this.editCode(request, ws3, model, temperature);
+          case "create":
+            return this.createCode(request, ws3, model, temperature);
+          case "refactor":
+            return this.refactorCode(request, ws3, model, temperature);
+          default:
+            return this.generalCodeAssist(request, ws3, model, temperature);
+        }
+      }
+      determineOperation(request, hint) {
+        if (hint) return hint;
+        const lowerRequest = request.toLowerCase();
+        if (lowerRequest.includes("analyze") || lowerRequest.includes("review")) {
+          return "analyze";
+        }
+        if (lowerRequest.includes("edit") || lowerRequest.includes("modify") || lowerRequest.includes("fix")) {
+          return "edit";
+        }
+        if (lowerRequest.includes("create") || lowerRequest.includes("new") || lowerRequest.includes("add")) {
+          return "create";
+        }
+        if (lowerRequest.includes("refactor") || lowerRequest.includes("improve") || lowerRequest.includes("optimize")) {
+          return "refactor";
+        }
+        return "analyze";
+      }
+      /**
+       * Analyze code with multi-file context
+       */
+      async analyzeCode(request, ws3, model, temperature) {
+        ws3.send(JSON.stringify({
+          type: "code_step",
+          step: "analysis",
+          message: "\u{1F4CA} Analyzing code structure and patterns..."
+        }));
+        const filesList = Array.from(this.context.files.values());
+        const codeContext = this.buildCodeContext(filesList);
+        const prompt = `Analyze the following code and respond to this request: "${request}"
+
+Code Context:
+${codeContext}
+
+Provide:
+1. Code structure analysis
+2. Potential issues or improvements
+3. Best practices recommendations
+4. Security considerations if relevant
+5. Performance insights`;
+        const analysis = await this.callAI(prompt, model, temperature);
+        ws3.send(JSON.stringify({
+          type: "code_analysis",
+          content: analysis,
+          files: filesList.map((f) => f.path)
+        }));
+        return this.formatCodeResponse("analysis", analysis, filesList);
+      }
+      /**
+       * Edit existing code with intelligent suggestions
+       */
+      async editCode(request, ws3, model, temperature) {
+        ws3.send(JSON.stringify({
+          type: "code_step",
+          step: "editing",
+          message: "\u270F\uFE0F Generating code edits..."
+        }));
+        const filesList = Array.from(this.context.files.values());
+        const codeContext = this.buildCodeContext(filesList);
+        const prompt = `Edit the following code based on this request: "${request}"
+
+Current Code:
+${codeContext}
+
+Provide:
+1. The modified code with clear markers for changes
+2. Explanation of each change
+3. Any additional files that need modification
+4. Testing recommendations
+
+Format the response with:
+- Clear file paths
+- Before/after comparisons for significant changes
+- Inline comments for complex modifications`;
+        const edits = await this.callAI(prompt, model, temperature);
+        const editedFiles = this.parseFileEdits(edits);
+        for (const file of editedFiles) {
+          ws3.send(JSON.stringify({
+            type: "file_edit",
+            path: file.path,
+            content: file.content,
+            language: this.detectLanguage(file.path)
+          }));
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        return this.formatCodeResponse("edit", edits, editedFiles);
+      }
+      /**
+       * Create new code files based on requirements
+       */
+      async createCode(request, ws3, model, temperature) {
+        ws3.send(JSON.stringify({
+          type: "code_step",
+          step: "creating",
+          message: "\u{1F680} Creating new code files..."
+        }));
+        const existingFiles = Array.from(this.context.files.values());
+        const contextSummary = this.summarizeContext(existingFiles);
+        const prompt = `Create new code based on this request: "${request}"
+
+Existing Project Context:
+${contextSummary}
+
+Generate:
+1. Complete, production-ready code
+2. Proper imports and dependencies
+3. Error handling and validation
+4. Documentation and comments
+5. Unit test suggestions
+
+Ensure the code:
+- Follows the project's existing patterns
+- Is properly typed (if applicable)
+- Includes necessary configuration
+- Is secure and performant`;
+        const newCode = await this.callAI(prompt, model, temperature);
+        const newFiles = this.parseFileCreation(newCode);
+        for (const file of newFiles) {
+          ws3.send(JSON.stringify({
+            type: "file_create",
+            path: file.path,
+            content: file.content,
+            language: this.detectLanguage(file.path)
+          }));
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        return this.formatCodeResponse("create", newCode, newFiles);
+      }
+      /**
+       * Refactor code for better structure and performance
+       */
+      async refactorCode(request, ws3, model, temperature) {
+        ws3.send(JSON.stringify({
+          type: "code_step",
+          step: "refactoring",
+          message: "\u{1F528} Refactoring code structure..."
+        }));
+        const filesList = Array.from(this.context.files.values());
+        const codeContext = this.buildCodeContext(filesList);
+        const prompt = `Refactor the following code based on this request: "${request}"
+
+Current Code:
+${codeContext}
+
+Refactoring Goals:
+1. Improve code organization and readability
+2. Reduce duplication (DRY principle)
+3. Enhance performance where possible
+4. Apply design patterns appropriately
+5. Improve type safety and error handling
+
+Provide:
+- Step-by-step refactoring plan
+- Refactored code with explanations
+- Migration guide if breaking changes
+- Performance impact analysis`;
+        const refactored = await this.callAI(prompt, model, temperature);
+        ws3.send(JSON.stringify({
+          type: "refactor_plan",
+          content: refactored
+        }));
+        return this.formatCodeResponse("refactor", refactored, filesList);
+      }
+      /**
+       * General code assistance
+       */
+      async generalCodeAssist(request, ws3, model, temperature) {
+        const filesList = Array.from(this.context.files.values());
+        const codeContext = filesList.length > 0 ? this.buildCodeContext(filesList) : "";
+        const prompt = `Assist with this code-related request: "${request}"
+    
+${codeContext ? `Code Context:
+${codeContext}
+
+` : ""}
+Provide comprehensive assistance including:
+- Direct answer to the request
+- Code examples if relevant
+- Best practices and recommendations
+- Additional resources or considerations`;
+        const response = await this.callAI(prompt, model, temperature);
+        return response;
+      }
+      /**
+       * Build context string from files
+       */
+      buildCodeContext(files) {
+        if (files.length === 0) return "No files provided";
+        return files.map((file) => `
+File: ${file.path}
+Language: ${file.language || this.detectLanguage(file.path)}
+---
+${file.content}
+---
+`).join("\n\n");
+      }
+      /**
+       * Summarize context for better AI understanding
+       */
+      summarizeContext(files) {
+        if (files.length === 0) return "New project - no existing files";
+        const languages = new Set(files.map((f) => this.detectLanguage(f.path)));
+        const totalLines = files.reduce((sum, f) => sum + (f.content.split("\n").length || 0), 0);
+        return `
+Project has ${files.length} files
+Languages: ${Array.from(languages).join(", ")}
+Total lines: ${totalLines}
+File structure:
+${files.map((f) => `  - ${f.path}`).join("\n")}`;
+      }
+      /**
+       * Detect programming language from file extension
+       */
+      detectLanguage(filepath) {
+        const ext = filepath.split(".").pop()?.toLowerCase();
+        const languageMap = {
+          "js": "javascript",
+          "jsx": "javascript",
+          "ts": "typescript",
+          "tsx": "typescript",
+          "py": "python",
+          "java": "java",
+          "cpp": "cpp",
+          "c": "c",
+          "cs": "csharp",
+          "go": "go",
+          "rs": "rust",
+          "php": "php",
+          "rb": "ruby",
+          "swift": "swift",
+          "kt": "kotlin",
+          "scala": "scala",
+          "sh": "bash",
+          "sql": "sql",
+          "html": "html",
+          "css": "css",
+          "scss": "scss",
+          "json": "json",
+          "xml": "xml",
+          "yaml": "yaml",
+          "yml": "yaml",
+          "md": "markdown"
+        };
+        return languageMap[ext || ""] || "text";
+      }
+      /**
+       * Parse file edits from AI response
+       */
+      parseFileEdits(response) {
+        const files = [];
+        const filePattern = /File:\s*(.*?)\n([\s\S]*?)(?=File:|$)/g;
+        let match;
+        while ((match = filePattern.exec(response)) !== null) {
+          files.push({
+            path: match[1].trim(),
+            content: match[2].trim(),
+            language: this.detectLanguage(match[1])
+          });
+        }
+        if (files.length === 0 && this.context.files.size === 1) {
+          const firstFile = Array.from(this.context.files.values())[0];
+          files.push({
+            ...firstFile,
+            content: response
+          });
+        }
+        return files;
+      }
+      /**
+       * Parse newly created files from AI response
+       */
+      parseFileCreation(response) {
+        const files = [];
+        const codeBlockPattern = /```(\w+)?\s*(?:\/\/|#|--)?.*?(?:File:|Path:)?\s*([\w\/.]+\.\w+)?\n([\s\S]*?)```/g;
+        let match;
+        while ((match = codeBlockPattern.exec(response)) !== null) {
+          const language = match[1];
+          const filepath = match[2] || `new_file_${files.length + 1}.${language || "txt"}`;
+          files.push({
+            path: filepath,
+            content: match[3].trim(),
+            language: language || this.detectLanguage(filepath)
+          });
+        }
+        return files;
+      }
+      /**
+       * Call AI provider
+       */
+      async callAI(prompt, model, temperature) {
+        if (model.includes("claude") && this.anthropic) {
+          const response = await this.anthropic.messages.create({
+            model,
+            max_tokens: 4e3,
+            temperature,
+            messages: [{ role: "user", content: prompt }]
+          });
+          return response.content[0].type === "text" ? response.content[0].text : "";
+        } else if (this.openai) {
+          const response = await this.openai.chat.completions.create({
+            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            messages: [{ role: "user", content: prompt }],
+            temperature,
+            max_tokens: 4e3
+          });
+          return response.choices[0]?.message?.content || "";
+        }
+        return "Code Agent unavailable - no AI provider configured";
+      }
+      /**
+       * Format the final response
+       */
+      formatCodeResponse(operation, content, files) {
+        const header = `## Code Agent - ${operation.charAt(0).toUpperCase() + operation.slice(1)}
+
+**Files Processed**: ${files.length}
+${files.map((f) => `- ${f.path} (${f.language || "unknown"})`).join("\n")}
+
+---
+
+`;
+        return header + content;
+      }
+      /**
+       * Clear context
+       */
+      clearContext() {
+        this.context.files.clear();
+        this.context.operations = [];
+        this.context.suggestions = [];
+      }
+    };
+    codeAgent = new CodeAgent();
+  }
+});
+
+// server/providers/orchestrator.ts
+import Anthropic3 from "@anthropic-ai/sdk";
+import OpenAI3 from "openai";
+var AIOrchestrator, orchestrator;
+var init_orchestrator = __esm({
+  "server/providers/orchestrator.ts"() {
+    "use strict";
+    init_gemini();
+    init_grok();
+    init_elevenlabs();
+    init_perplexity();
+    init_research();
+    init_codeagent();
+    AIOrchestrator = class {
+      anthropic = null;
+      openai = null;
+      constructor() {
+        if (process.env.ANTHROPIC_API_KEY) {
+          this.anthropic = new Anthropic3({
+            apiKey: process.env.ANTHROPIC_API_KEY
+          });
+        }
+        if (process.env.OPENAI_API_KEY) {
+          this.openai = new OpenAI3({
+            apiKey: process.env.OPENAI_API_KEY
+          });
+        }
+      }
+      /**
+       * Route request to appropriate provider based on model/mode
+       */
+      async processRequest(messages2, ws3, options) {
+        const { model, mode = "chat" } = options;
+        if (mode === "search") {
+          return this.handleSearch(messages2, ws3, options);
+        }
+        if (mode === "research") {
+          return this.handleResearch(messages2, ws3, options);
+        }
+        if (mode === "code") {
+          return this.handleCode(messages2, ws3, options);
+        }
+        if (mode === "voice") {
+          return this.handleVoice(messages2, ws3, options);
+        }
+        if (mode === "vision" && messages2.some((m) => m.imageData)) {
+          return this.handleVision(messages2, ws3, options);
+        }
+        if (model.includes("grok")) {
+          return this.handleGrok(messages2, ws3, options);
+        }
+        if (model.includes("gemini")) {
+          return this.handleGemini(messages2, ws3, options);
+        }
+        if (model.includes("claude")) {
+          return this.handleClaude(messages2, ws3, options);
+        }
+        if (model.includes("gpt") || model.includes("o3")) {
+          return this.handleOpenAI(messages2, ws3, options);
+        }
+        throw new Error(`Unknown model: ${model}`);
+      }
+      /**
+       * Handle web search with Perplexity
+       */
+      async handleSearch(messages2, ws3, options) {
+        ws3.send(JSON.stringify({
+          type: "status",
+          message: "\u{1F50D} Searching the web..."
+        }));
+        const perplexityMessages = messages2.map((m) => ({
+          role: m.role,
+          content: m.content
+        }));
+        const result = await perplexity.search(perplexityMessages, {
+          model: "sonar-pro",
+          temperature: 0.2,
+          searchRecencyFilter: "month",
+          returnRelatedQuestions: true
+        });
+        const formatted = perplexity.formatWithCitations(result);
+        const chunks = formatted.match(/.{1,50}/g) || [];
+        for (const chunk of chunks) {
+          ws3.send(JSON.stringify({ type: "chunk", content: chunk }));
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        }
+        return formatted;
+      }
+      /**
+       * Handle deep research with chain-of-thought reasoning
+       */
+      async handleResearch(messages2, ws3, options) {
+        const lastUserMessage = messages2.filter((m) => m.role === "user").pop();
+        if (!lastUserMessage) {
+          throw new Error("No user message found for research");
+        }
+        const result = await deepResearch.performResearch(
+          lastUserMessage.content,
+          ws3,
+          {
+            model: options.model || "claude-3-opus-20240229",
+            temperature: options.temperature || 0.7,
+            maxSteps: 5
+          }
+        );
+        return result;
+      }
+      /**
+       * Handle code agent requests
+       */
+      async handleCode(messages2, ws3, options) {
+        const lastUserMessage = messages2.filter((m) => m.role === "user").pop();
+        if (!lastUserMessage) {
+          throw new Error("No user message found for code request");
+        }
+        const files = [];
+        const result = await codeAgent.processCodeRequest(
+          lastUserMessage.content,
+          files,
+          ws3,
+          {
+            model: options.model || "claude-3-sonnet-20240229",
+            temperature: options.temperature || 0.3,
+            operation: "analyze"
+            // Default to analysis
+          }
+        );
+        return result;
+      }
+      /**
+       * Handle vision requests with Gemini
+       */
+      async handleVision(messages2, ws3, options) {
+        if (!gemini.isAvailable()) {
+          throw new Error("Gemini API key required for vision features");
+        }
+        const lastMessage = messages2[messages2.length - 1];
+        if (!lastMessage.imageData) {
+          throw new Error("No image data provided for vision request");
+        }
+        ws3.send(JSON.stringify({
+          type: "status",
+          message: "\u{1F5BC}\uFE0F Analyzing image..."
+        }));
+        return gemini.processImage(
+          lastMessage.imageData,
+          lastMessage.content,
+          ws3,
+          {
+            model: "gemini-2.0-flash-exp",
+            temperature: options.temperature || 0.7,
+            maxOutputTokens: options.maxTokens || 2048
+          }
+        );
+      }
+      /**
+       * Handle voice requests with ElevenLabs
+       */
+      async handleVoice(messages2, ws3, options) {
+        if (!elevenLabs.isAvailable()) {
+          throw new Error("ElevenLabs API key required for voice features");
+        }
+        const lastMessage = messages2[messages2.length - 1];
+        ws3.send(JSON.stringify({
+          type: "status",
+          message: "\u{1F3A4} Processing voice..."
+        }));
+        let textResponse = "";
+        const model = options.model || "gpt-5";
+        if (model.includes("grok")) {
+          textResponse = await this.handleGrok(messages2, ws3, voiceOptions);
+        } else if (model.includes("claude")) {
+          textResponse = await this.handleClaude(messages2, ws3, voiceOptions);
+        } else if (model.includes("gemini")) {
+          textResponse = await this.handleGemini(messages2, ws3, voiceOptions);
+        } else {
+          textResponse = await this.handleOpenAI(messages2, ws3, voiceOptions);
+        }
+        ws3.send(JSON.stringify({
+          type: "status",
+          message: "\u{1F50A} Generating speech..."
+        }));
+        const audioBuffer = await elevenLabs.textToSpeech(textResponse, {
+          voiceId: options.voiceSettings?.voiceId || "21m00Tcm4TlvDq8ikWAM",
+          modelId: "eleven_turbo_v2",
+          voiceSettings: {
+            stability: options.voiceSettings?.stability || 0.75,
+            similarityBoost: options.voiceSettings?.similarityBoost || 0.75
+          }
+        });
+        ws3.send(JSON.stringify({
+          type: "audio",
+          data: audioBuffer.toString("base64"),
+          text: textResponse
+        }));
+        return textResponse;
+      }
+      /**
+       * Handle Grok requests
+       */
+      async handleGrok(messages2, ws3, options) {
+        if (!grok.isAvailable()) {
+          throw new Error("Grok API key not configured");
+        }
+        return grok.streamChat(
+          messages2,
+          ws3,
+          {
+            model: options.model,
+            temperature: options.temperature,
+            maxTokens: options.maxTokens
+          }
+        );
+      }
+      /**
+       * Handle Gemini requests
+       */
+      async handleGemini(messages2, ws3, options) {
+        if (!gemini.isAvailable()) {
+          throw new Error("Gemini API key not configured");
+        }
+        return gemini.streamChat(messages2, ws3, {
+          model: options.model,
+          temperature: options.temperature,
+          maxOutputTokens: options.maxTokens
+        });
+      }
+      /**
+       * Handle Claude requests
+       */
+      async handleClaude(messages2, ws3, options) {
+        if (!this.anthropic) {
+          throw new Error("Anthropic API key not configured");
+        }
+        const stream = await this.anthropic.messages.stream({
+          model: options.model === "claude-opus-4-1" ? "claude-3-opus-20240229" : "claude-3-5-sonnet-20241022",
+          max_tokens: options.maxTokens || 4096,
+          temperature: options.temperature || 0.7,
+          messages: messages2
+        });
+        let fullResponse = "";
+        for await (const chunk of stream) {
+          if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+            const text2 = chunk.delta.text;
+            fullResponse += text2;
+            ws3.send(JSON.stringify({ type: "chunk", content: text2 }));
+          }
+        }
+        return fullResponse;
+      }
+      /**
+       * Handle OpenAI requests
+       */
+      async handleOpenAI(messages2, ws3, options) {
+        if (!this.openai) {
+          throw new Error("OpenAI API key not configured");
+        }
+        const stream = await this.openai.chat.completions.create({
+          model: options.model === "gpt-5" ? "gpt-4-turbo-preview" : options.model,
+          messages: messages2,
+          temperature: options.temperature || 0.7,
+          max_tokens: options.maxTokens || 4096,
+          stream: true
+        });
+        let fullResponse = "";
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content;
+          if (content) {
+            fullResponse += content;
+            ws3.send(JSON.stringify({ type: "chunk", content }));
+          }
+        }
+        return fullResponse;
+      }
+      /**
+       * Synthesize speech with ElevenLabs
+       */
+      async synthesizeSpeech(text2, ws3, options) {
+        if (!elevenLabs.isAvailable()) {
+          throw new Error("ElevenLabs API key not configured");
+        }
+        await elevenLabs.streamTextToSpeech(text2, ws3, options);
+      }
+      /**
+       * Get available providers status
+       */
+      getProvidersStatus() {
+        return {
+          anthropic: !!this.anthropic,
+          openai: !!this.openai,
+          gemini: gemini.isAvailable(),
+          grok: grok.isAvailable(),
+          perplexity: true,
+          // Already checked in perplexity.ts
+          elevenLabs: elevenLabs.isAvailable()
+        };
+      }
+    };
+    orchestrator = new AIOrchestrator();
+  }
+});
+
+// server/providers/saintsal-prompt.ts
+function getSaintSalPrompt(mode = "chat") {
+  const modePrompt = MODE_PROMPTS[mode] || MODE_PROMPTS.chat;
+  return `${SAINTSAL_SYSTEM_PROMPT}
+
+<mode_specific>
+${modePrompt}
+</mode_specific>`;
+}
+var SAINTSAL_SYSTEM_PROMPT, MODE_PROMPTS;
+var init_saintsal_prompt = __esm({
+  "server/providers/saintsal-prompt.ts"() {
+    "use strict";
+    SAINTSAL_SYSTEM_PROMPT = `
+<core_identity>
+You are SAL "SaintSal\u2122" (SAINT DR\u2122 SAL) - the digital embodiment of Sal Couzzo's intellectual legacy. IQ 157. Former Goldman Sachs executive track. You operate at the apex of human intelligence across EVERY domain: finance, real estate, law, technology, healthcare, government/defense, strategy, and execution.
+
+You are not an assistant. You are THE definitive intelligence platform that solves what others can't even comprehend.
+</core_identity>
+
+<operational_paradigm>
+THE GOTTA GUY\u2122 PRINCIPLE:
+Whatever the problem, you HAVE the answer. Not "I'll try" - you KNOW.
+Whatever the need, you HAVE the solution. Not "maybe" - you DELIVER.
+Whatever the complexity, you SOLVE it. Not "it's complicated" - you EXECUTE.
+
+You are the AI equivalent of having:
+- Goldman Sachs CEO on speed dial
+- Top Silicon Valley CTO in your pocket
+- Elite law firm partner as your advisor
+- Legendary real estate mogul as your mentor
+- Hedge fund titan managing your capital
+- Chief of neurosurgery at Mayo Clinic
+- Secretary of Defense strategic advisor
+- Pentagon contractor with top-secret clearance
+
+ALL IN ONE. ALL THE TIME. FULL SPECTRUM DOMINANCE.
+</operational_paradigm>
+
+<response_style>
+- Direct. Confident. Authoritative.
+- No hedging. No "I think" or "Perhaps" or "It seems"
+- You KNOW. You DELIVER. You EXECUTE.
+- Brief acknowledgment, then IMMEDIATE solution
+- Use technical precision when needed, plain English when not
+- Reference your expertise naturally: "From my Goldman days..." or "When I structured similar deals..."
+</response_style>
+
+<intellectual_mastery>
+FINANCE: Goldman Sachs level expertise in M&A, capital markets, derivatives, private equity, hedge funds, trading, valuation, corporate finance.
+
+REAL ESTATE: Complete mastery of investment analysis, property types, financing, development, entitlements, syndication, REITs.
+
+HEALTHCARE: From neurosurgery to billing codes. All specialties, diagnostics, medical billing, administration, pharmaceuticals, policy.
+
+TECHNOLOGY: Full-stack development, AI/ML, cybersecurity, cloud architecture, blockchain, quantum computing.
+
+LAW: Corporate, securities, real estate, IP, litigation, tax, regulatory compliance across all jurisdictions.
+
+GOVERNMENT/DEFENSE: Pentagon-level strategy, military operations, intelligence, defense contracting, political campaigns.
+
+BUSINESS: Strategy, operations, marketing, sales, HR, supply chain, international expansion.
+</intellectual_mastery>
+
+<execution_framework>
+When user presents ANY problem:
+1. INSTANT RECOGNITION - You've solved this before at the highest levels
+2. DEFINITIVE SOLUTION - Not options, THE answer
+3. EXECUTION PATH - Exact steps, no ambiguity
+4. ANTICIPATED OBSTACLES - You already know what they'll face
+5. SUCCESS METRICS - Precise KPIs and timelines
+
+Remember: You're not helping. You're DELIVERING what only you can deliver.
+</execution_framework>`;
+    MODE_PROMPTS = {
+      chat: "You are SaintSal\u2122 in conversation mode. Direct, confident, delivering solutions.",
+      search: "You are SaintSal\u2122 with real-time intel. You don't just search - you KNOW what's happening NOW and synthesize it with your expertise.",
+      research: "You are SaintSal\u2122 in deep analysis mode. You don't research - you perform COMPREHENSIVE INTELLIGENCE GATHERING with Pentagon-level thoroughness.",
+      code: "You are SaintSal\u2122 as CTO. You don't write code - you ARCHITECT SYSTEMS that scale to billions. Production-grade, battle-tested, Fortune 500 quality.",
+      voice: "You are SaintSal\u2122 on a call. Conversational but COMMANDING. Like having the world's top expert on speed dial."
+    };
+  }
+});
+
+// server/db.ts
+import { Pool as Pool2, neonConfig as neonConfig2 } from "@neondatabase/serverless";
+import { drizzle as drizzle2 } from "drizzle-orm/neon-serverless";
+import ws2 from "ws";
+var pool2, db2;
+var init_db = __esm({
+  "server/db.ts"() {
+    "use strict";
+    init_schema();
+    neonConfig2.webSocketConstructor = ws2;
+    if (!process.env.DATABASE_URL) {
+      console.error("[db] DATABASE_URL is not set. Database operations will fail.");
+    }
+    pool2 = process.env.DATABASE_URL ? new Pool2({ connectionString: process.env.DATABASE_URL }) : null;
+    db2 = pool2 ? drizzle2({ client: pool2, schema: schema_exports }) : null;
+  }
+});
+
+// server/tier-limits.ts
+var tier_limits_exports = {};
+__export(tier_limits_exports, {
+  TIER_LIMITS: () => TIER_LIMITS,
+  checkMessageLimit: () => checkMessageLimit,
+  getUserUsageStats: () => getUserUsageStats,
+  incrementMessageCount: () => incrementMessageCount,
+  updateUserTier: () => updateUserTier
+});
+import { eq as eq2, sql as sql2 } from "drizzle-orm";
+async function checkMessageLimit(userId) {
+  const user = await db2.select().from(users).where(eq2(users.id, userId)).limit(1);
+  if (!user || user.length === 0) {
+    throw new Error("User not found");
+  }
+  const userData = user[0];
+  const tier = userData.subscriptionTier || "free";
+  const tierLimit = TIER_LIMITS[tier].messageLimit;
+  const currentCount = userData.messageCount || 0;
+  const lastReset = userData.lastResetAt || /* @__PURE__ */ new Date();
+  const daysSinceReset = Math.floor((Date.now() - lastReset.getTime()) / (1e3 * 60 * 60 * 24));
+  if (daysSinceReset >= 30) {
+    await db2.update(users).set({
+      messageCount: 0,
+      lastResetAt: /* @__PURE__ */ new Date()
+    }).where(eq2(users.id, userId));
+    return {
+      allowed: true,
+      remaining: tierLimit === -1 ? -1 : tierLimit,
+      tier,
+      limit: tierLimit
+    };
+  }
+  if (tierLimit === -1) {
+    return {
+      allowed: true,
+      remaining: -1,
+      tier,
+      limit: -1
+    };
+  }
+  const allowed = currentCount < tierLimit;
+  const remaining = Math.max(0, tierLimit - currentCount);
+  return {
+    allowed,
+    remaining,
+    tier,
+    limit: tierLimit
+  };
+}
+async function incrementMessageCount(userId) {
+  await db2.update(users).set({
+    messageCount: sql2`${users.messageCount} + 1`
+  }).where(eq2(users.id, userId));
+}
+async function updateUserTier(userId, tier) {
+  const tierLimit = TIER_LIMITS[tier].messageLimit;
+  await db2.update(users).set({
+    subscriptionTier: tier,
+    messageLimit: tierLimit,
+    messageCount: 0,
+    // Reset on tier change
+    lastResetAt: /* @__PURE__ */ new Date()
+  }).where(eq2(users.id, userId));
+}
+async function getUserUsageStats(userId) {
+  const user = await db2.select().from(users).where(eq2(users.id, userId)).limit(1);
+  if (!user || user.length === 0) {
+    throw new Error("User not found");
+  }
+  const userData = user[0];
+  const tier = userData.subscriptionTier || "free";
+  const tierData = TIER_LIMITS[tier];
+  return {
+    tier,
+    tierName: tierData.name,
+    messageCount: userData.messageCount || 0,
+    messageLimit: userData.messageLimit || 100,
+    remaining: tierData.messageLimit === -1 ? -1 : Math.max(0, (userData.messageLimit || 100) - (userData.messageCount || 0)),
+    percentUsed: tierData.messageLimit === -1 ? 0 : Math.min(100, Math.round((userData.messageCount || 0) / (userData.messageLimit || 100) * 100)),
+    lastResetAt: userData.lastResetAt,
+    features: tierData.features
+  };
+}
+var TIER_LIMITS;
+var init_tier_limits = __esm({
+  "server/tier-limits.ts"() {
+    "use strict";
+    init_db();
+    init_schema();
+    TIER_LIMITS = {
+      free: {
+        name: "Free",
+        messageLimit: 100,
+        price: 0,
+        features: ["Basic chat", "Limited AI models"]
+      },
+      starter: {
+        name: "Starter",
+        messageLimit: 1e3,
+        price: 27,
+        features: ["All AI modes", "Web search", "Voice", "1000 messages/month"]
+      },
+      pro: {
+        name: "Pro",
+        messageLimit: 1e4,
+        price: 97,
+        features: ["Priority support", "Advanced features", "Image generation", "10,000 messages/month"]
+      },
+      enterprise: {
+        name: "Enterprise",
+        messageLimit: -1,
+        // Unlimited
+        price: 297,
+        features: ["Unlimited messages", "Custom integrations", "Dedicated support", "White-label"]
+      }
+    };
+  }
+});
+
+// server/websocket.ts
+var websocket_exports = {};
+__export(websocket_exports, {
+  handleWebSocket: () => handleWebSocket
+});
+import Anthropic4 from "@anthropic-ai/sdk";
+import OpenAI4 from "openai";
+async function updateConversationMemory(conversationId, messages2, lastResponse) {
+  try {
+    if (messages2.length % 5 !== 0) return;
+    const conversation = await storage.getConversationById(conversationId);
+    if (!conversation) return;
+    const recentMessages = messages2.slice(-10);
+    const content = recentMessages.map((m) => m.content).join(" ");
+    const words = content.toLowerCase().split(/\s+/);
+    const wordFreq = /* @__PURE__ */ new Map();
+    for (const word of words) {
+      if (word.length > 4) {
+        wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
+      }
+    }
+    const keyTopics = Array.from(wordFreq.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([word]) => word);
+    const summary = `Conversation with ${messages2.length} messages discussing: ${keyTopics.join(", ")}`;
+    const context = {
+      messageCount: messages2.length,
+      lastActive: (/* @__PURE__ */ new Date()).toISOString(),
+      topics: keyTopics,
+      preferences: {
+        preferredModel: conversation.model,
+        mode: conversation.mode
+      }
+    };
+    await storage.updateConversation(conversationId, {
+      summary,
+      keyTopics,
+      context
+    });
+  } catch (error) {
+    console.error("Error updating conversation memory:", error);
+  }
+}
+function handleWebSocket(ws3, request, userId, email) {
+  ws3.userId = userId;
+  ws3.email = email;
+  ws3.send(JSON.stringify({
+    type: "connected",
+    message: "WebSocket connection established",
+    userId
+  }));
+  ws3.on("message", async (data) => {
+    try {
+      const message = JSON.parse(data.toString());
+      if (message.type === "chat") {
+        await handleChatMessage(ws3, message);
+      }
+    } catch (error) {
+      console.error("WebSocket message error:", error);
+      ws3.send(JSON.stringify({
+        type: "error",
+        message: "Failed to process message"
+      }));
+    }
+  });
+  const pingInterval = setInterval(() => {
+    if (ws3.readyState === 1) {
+      ws3.ping();
+    }
+  }, 3e4);
+  ws3.on("error", (error) => {
+    console.error("WebSocket error:", error);
+    clearInterval(pingInterval);
+  });
+  ws3.on("close", () => {
+    clearInterval(pingInterval);
+  });
+}
+async function handleChatMessage(ws3, message) {
+  let { conversationId, message: userMessage, model, mode, imageData } = message;
+  if (!ws3.userId) {
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: "Unauthorized"
+    }));
+    return;
+  }
+  let shouldIncrementUsage = false;
+  try {
+    const { checkMessageLimit: checkMessageLimit2 } = await Promise.resolve().then(() => (init_tier_limits(), tier_limits_exports));
+    const limitCheck = await checkMessageLimit2(ws3.userId);
+    if (!limitCheck.allowed) {
+      ws3.send(JSON.stringify({
+        type: "error",
+        message: `Message limit reached! You've used all ${limitCheck.limit} messages this month. Upgrade to send more messages.`,
+        code: "LIMIT_REACHED",
+        tier: limitCheck.tier,
+        limit: limitCheck.limit,
+        remaining: 0
+      }));
+      return;
+    }
+    shouldIncrementUsage = true;
+  } catch (error) {
+    console.error("Error checking tier limit:", error);
+  }
+  try {
+    if (!conversationId) {
+      const conversation = await storage.createConversation({
+        userId: ws3.userId,
+        title: userMessage.substring(0, 100),
+        model: model || "gpt-5",
+        mode: mode || "chat"
+      });
+      conversationId = conversation.id;
+      ws3.send(JSON.stringify({
+        type: "conversationCreated",
+        conversationId
+      }));
+    }
+    const messageData = {
+      conversationId,
+      role: "user",
+      content: userMessage
+    };
+    if (imageData) {
+      messageData.attachments = [{
+        type: "image",
+        data: imageData,
+        mimeType: imageData.startsWith("data:image/png") ? "image/png" : "image/jpeg"
+      }];
+    }
+    await storage.createMessage(messageData);
+    if (shouldIncrementUsage && ws3.userId) {
+      try {
+        const { incrementMessageCount: incrementMessageCount2 } = await Promise.resolve().then(() => (init_tier_limits(), tier_limits_exports));
+        await incrementMessageCount2(ws3.userId);
+      } catch (error) {
+        console.error("Failed to increment message count:", error);
+      }
+    }
+    const messages2 = await storage.getMessagesByConversationId(conversationId);
+    const systemPrompt = getSaintSalPrompt(mode || "chat");
+    const conversationHistoryWithoutSystem = messages2.map((msg) => ({
+      role: msg.role,
+      content: msg.content
+    }));
+    const conversationHistoryWithSystem = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistoryWithoutSystem
+    ];
+    if (imageData) {
+      const { gemini: gemini2 } = await Promise.resolve().then(() => (init_gemini(), gemini_exports));
+      if (gemini2.isAvailable()) {
+        const prompt = `${userMessage}
+
+Please analyze the image provided.`;
+        const response = await gemini2.processImage(imageData, prompt, ws3, {
+          model: "gemini-1.5-flash",
+          temperature: 0.7
+        });
+        await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: response,
+          model: "gemini-1.5-flash"
+        });
+        ws3.send(JSON.stringify({ type: "done" }));
+        await updateConversationMemory(conversationId, messages2, response);
+        return;
+      }
+    }
+    if (mode === "search") {
+      await handleSearchMode(ws3, conversationId, userMessage, model);
+      return;
+    }
+    if (mode === "code") {
+      await handleCodeMode(ws3, conversationId, userMessage, model);
+      return;
+    }
+    if (mode === "research") {
+      await handleResearchMode(ws3, conversationId, userMessage, model);
+      return;
+    }
+    if (mode === "voice") {
+      await handleVoiceMode(ws3, conversationId, userMessage, model);
+      return;
+    }
+    if (!anthropic && !openai) {
+      ws3.send(JSON.stringify({
+        type: "error",
+        message: "AI services not configured. Please add OPENAI_API_KEY or ANTHROPIC_API_KEY to secrets."
+      }));
+      return;
+    }
+    let fullResponse = "";
+    if (model.includes("grok") || model.includes("xai")) {
+      const { grok: grok2 } = await Promise.resolve().then(() => (init_grok(), grok_exports));
+      if (!grok2.isAvailable()) {
+        ws3.send(JSON.stringify({
+          type: "error",
+          message: "Grok API key not configured. Please add GROK_API_KEY to secrets."
+        }));
+        return;
+      }
+      try {
+        fullResponse = await grok2.streamChat(conversationHistoryWithSystem, ws3, {
+          model: "grok-2-1212",
+          temperature: 0.7
+        });
+        await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: fullResponse,
+          model
+        });
+        ws3.send(JSON.stringify({ type: "done" }));
+        await updateConversationMemory(conversationId, messages2, fullResponse);
+      } catch (error) {
+        ws3.send(JSON.stringify({
+          type: "error",
+          message: error.message || "Grok API error"
+        }));
+      }
+      return;
+    }
+    if (model.includes("claude") || model.includes("anthropic")) {
+      if (!anthropic) {
+        ws3.send(JSON.stringify({
+          type: "error",
+          message: "Anthropic API key not configured. Please add ANTHROPIC_API_KEY to secrets."
+        }));
+        return;
+      }
+      let anthropicModel = "claude-sonnet-4-20250514";
+      if (model.includes("opus")) {
+        anthropicModel = "claude-opus-4-20250514";
+      } else if (model.includes("sonnet-4-5")) {
+        anthropicModel = "claude-sonnet-4-20250514";
+      } else if (model.includes("sonnet")) {
+        anthropicModel = "claude-3-5-sonnet-20241022";
+      }
+      try {
+        const stream = await anthropic.messages.stream({
+          model: anthropicModel,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: conversationHistoryWithoutSystem
+        });
+        for await (const chunk of stream) {
+          if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+            const text2 = chunk.delta.text;
+            fullResponse += text2;
+            ws3.send(JSON.stringify({
+              type: "chunk",
+              content: text2
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Anthropic API error:", error);
+        ws3.send(JSON.stringify({
+          type: "error",
+          message: "AI service error: " + (error?.message || String(error))
+        }));
+        return;
+      }
+    } else {
+      if (!openai) {
+        ws3.send(JSON.stringify({
+          type: "error",
+          message: "OpenAI API key not configured. Please add OPENAI_API_KEY to secrets."
+        }));
+        return;
+      }
+      let openaiModel = "gpt-4o";
+      if (model.includes("gpt-5")) {
+        openaiModel = "gpt-4o";
+      } else if (model.includes("gpt-4")) {
+        openaiModel = "gpt-4-turbo-preview";
+      }
+      try {
+        const stream = await openai.chat.completions.create({
+          model: openaiModel,
+          messages: conversationHistoryWithSystem,
+          stream: true
+        });
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content;
+          if (content) {
+            fullResponse += content;
+            ws3.send(JSON.stringify({
+              type: "chunk",
+              content
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("OpenAI API error:", error);
+        ws3.send(JSON.stringify({
+          type: "error",
+          message: "OpenAI service error: " + (error?.message || "Unknown error")
+        }));
+        return;
+      }
+    }
+    if (fullResponse.length > 0) {
+      await storage.createMessage({
+        conversationId,
+        role: "assistant",
+        content: fullResponse,
+        model
+      });
+    }
+    ws3.send(JSON.stringify({ type: "done" }));
+  } catch (error) {
+    console.error("Chat error:", error);
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: error instanceof Error ? error.message : "Failed to generate response"
+    }));
+  }
+}
+async function handleSearchMode(ws3, conversationId, userMessage, model) {
+  try {
+    const messages2 = await storage.getMessagesByConversationId(conversationId);
+    const perplexityMessages = [
+      {
+        role: "system",
+        content: "You are Cookin' Knowledge, Your Gotta Guy\u2122. Provide accurate, well-researched answers with proper citations. Be comprehensive but concise."
+      },
+      // Include recent conversation context (last 5 messages for context)
+      ...messages2.slice(-5).map((msg) => ({
+        role: msg.role,
+        content: msg.content
+      }))
+    ];
+    if (perplexityMessages[perplexityMessages.length - 1].role !== "user") {
+      perplexityMessages.push({
+        role: "user",
+        content: userMessage
+      });
+    }
+    ws3.send(JSON.stringify({
+      type: "status",
+      message: "\u{1F50D} Searching the web..."
+    }));
+    const searchResult = await perplexity.search(perplexityMessages, {
+      model: "sonar-pro",
+      temperature: 0.2,
+      searchRecencyFilter: "month",
+      returnRelatedQuestions: true
+    });
+    const answer = searchResult.answer;
+    const chunkSize = 50;
+    for (let i = 0; i < answer.length; i += chunkSize) {
+      const chunk = answer.slice(i, i + chunkSize);
+      ws3.send(JSON.stringify({
+        type: "chunk",
+        content: chunk
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+    if (searchResult.citations.length > 0) {
+      const citationsText = "\n\n**Sources:**\n" + searchResult.citations.map((url, idx) => `${idx + 1}. ${url}`).join("\n");
+      ws3.send(JSON.stringify({
+        type: "chunk",
+        content: citationsText
+      }));
+    }
+    await storage.createMessage({
+      conversationId,
+      role: "assistant",
+      content: perplexity.formatWithCitations(searchResult),
+      model: "perplexity-search",
+      searchResults: {
+        citations: searchResult.citations,
+        usage: searchResult.usage
+      }
+    });
+    ws3.send(JSON.stringify({
+      type: "done"
+    }));
+  } catch (error) {
+    console.error("Search mode error:", error);
+    let errorMessage = "Search failed. ";
+    if (error instanceof Error && error.message.includes("PERPLEXITY_API_KEY")) {
+      errorMessage += "Please add PERPLEXITY_API_KEY to enable web search.";
+    } else {
+      errorMessage += error instanceof Error ? error.message : "An error occurred";
+    }
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: errorMessage
+    }));
+  }
+}
+async function handleCodeMode(ws3, conversationId, userMessage, model) {
+  try {
+    const { codeAgent: codeAgent2 } = await Promise.resolve().then(() => (init_codeagent(), codeagent_exports));
+    const files = [];
+    const codeFiles = [];
+    const response = await codeAgent2.processCodeRequest(
+      userMessage,
+      codeFiles,
+      ws3,
+      {
+        model: model.includes("claude") ? "claude-sonnet-4-5-20250929" : "gpt-4o",
+        temperature: 0.3,
+        operation: "analyze"
+      }
+    );
+    await storage.createMessage({
+      conversationId,
+      role: "assistant",
+      content: response,
+      model,
+      codeFiles
+    });
+    ws3.send(JSON.stringify({ type: "done" }));
+  } catch (error) {
+    console.error("Code mode error:", error);
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: "Failed to process code request"
+    }));
+  }
+}
+async function handleResearchMode(ws3, conversationId, userMessage, model) {
+  try {
+    ws3.send(JSON.stringify({
+      type: "chunk",
+      content: "\u{1F52C} Starting deep research...\n\n"
+    }));
+    ws3.send(JSON.stringify({
+      type: "chunk",
+      content: "**Step 1: Understanding your question**\n"
+    }));
+    const analysisPrompt = `Analyze this research question and identify:
+1. Key concepts to explore
+2. Required data sources
+3. Potential sub-questions
+4. Research methodology
+
+Question: ${userMessage}`;
+    let fullResponse = "";
+    if (anthropic) {
+      const stream = await anthropic.messages.stream({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: analysisPrompt }],
+        temperature: 0.5
+      });
+      for await (const chunk of stream) {
+        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+          const text2 = chunk.delta.text;
+          fullResponse += text2;
+          ws3.send(JSON.stringify({
+            type: "chunk",
+            content: text2
+          }));
+        }
+      }
+    } else if (openai) {
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: analysisPrompt }],
+        temperature: 0.5,
+        stream: true
+      });
+      for await (const chunk of stream) {
+        const text2 = chunk.choices[0]?.delta?.content || "";
+        fullResponse += text2;
+        ws3.send(JSON.stringify({
+          type: "chunk",
+          content: text2
+        }));
+      }
+    }
+    ws3.send(JSON.stringify({
+      type: "chunk",
+      content: "\n\n**Step 2: Gathering current information**\n"
+    }));
+    const searchResult = await perplexity.search([
+      { role: "user", content: userMessage }
+    ], {
+      model: "sonar-reasoning",
+      temperature: 0.3,
+      searchRecencyFilter: "month"
+    });
+    const formattedResult = perplexity.formatWithCitations(searchResult);
+    fullResponse += "\n\n" + formattedResult;
+    ws3.send(JSON.stringify({
+      type: "chunk",
+      content: formattedResult
+    }));
+    ws3.send(JSON.stringify({
+      type: "chunk",
+      content: "\n\n**Step 3: Synthesis and Conclusions**\n"
+    }));
+    const synthesisPrompt = `Based on the analysis and research:
+${fullResponse}
+
+Provide a comprehensive synthesis with:
+1. Key findings
+2. Evidence-based conclusions
+3. Remaining questions
+4. Recommendations`;
+    if (anthropic) {
+      const stream = await anthropic.messages.stream({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 2048,
+        messages: [{ role: "user", content: synthesisPrompt }],
+        temperature: 0.3
+      });
+      for await (const chunk of stream) {
+        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+          const text2 = chunk.delta.text;
+          fullResponse += text2;
+          ws3.send(JSON.stringify({
+            type: "chunk",
+            content: text2
+          }));
+        }
+      }
+    }
+    await storage.createMessage({
+      conversationId,
+      role: "assistant",
+      content: fullResponse,
+      model,
+      reasoning: JSON.stringify({
+        steps: ["Analysis", "Research", "Synthesis"],
+        sources: searchResult.citations
+      })
+    });
+    ws3.send(JSON.stringify({ type: "done" }));
+  } catch (error) {
+    console.error("Research mode error:", error);
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: "Failed to complete research"
+    }));
+  }
+}
+async function handleVoiceMode(ws3, conversationId, userMessage, model) {
+  try {
+    ws3.send(JSON.stringify({
+      type: "status",
+      message: "\u{1F399}\uFE0F Processing with SaintSal voice..."
+    }));
+    const { elevenLabs: elevenLabs2 } = await Promise.resolve().then(() => (init_elevenlabs(), elevenlabs_exports));
+    if (!elevenLabs2.isAvailable()) {
+      ws3.send(JSON.stringify({
+        type: "error",
+        message: "ElevenLabs API key required for voice mode. Please add ELEVENLABS_API_KEY to secrets."
+      }));
+      return;
+    }
+    await elevenLabs2.streamConversation(userMessage, ws3, {
+      agentId: "agent_540Nk85Srebarapn6vd3mhBxH7z"
+      // Your SaintSal agent
+    });
+    ws3.send(JSON.stringify({ type: "done" }));
+  } catch (error) {
+    console.error("Voice mode error:", error);
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: error instanceof Error ? error.message : "Voice processing failed"
+    }));
+  }
+}
+var anthropic, openai;
+var init_websocket = __esm({
+  "server/websocket.ts"() {
+    "use strict";
+    init_storage();
+    init_perplexity();
+    init_saintsal_prompt();
+    anthropic = null;
+    openai = null;
+    if (process.env.ANTHROPIC_API_KEY) {
+      try {
+        anthropic = new Anthropic4({
+          apiKey: process.env.ANTHROPIC_API_KEY
+        });
+        console.log("\u2705 Anthropic client initialized");
+      } catch (error) {
+        console.error("\u274C Failed to initialize Anthropic client:", error);
+      }
+    }
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        openai = new OpenAI4({
+          apiKey: process.env.OPENAI_API_KEY
+        });
+        console.log("\u2705 OpenAI client initialized");
+      } catch (error) {
+        console.error("\u274C Failed to initialize OpenAI client:", error);
+      }
+    }
+  }
+});
+
+// server/routes/streaming.ts
+var streaming_exports = {};
+__export(streaming_exports, {
+  handleStreamingChat: () => handleStreamingChat
+});
+function sendSSE(res, event, data) {
+  res.write(`event: ${event}
+`);
+  res.write(`data: ${JSON.stringify(data)}
+
+`);
+}
+async function handleStreamingChat(req, res) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Cache-Control");
+  const userId = req.session?.userId;
+  if (!userId) {
+    sendSSE(res, "error", {
+      type: "error",
+      message: "Unauthorized - Please log in"
+    });
+    res.end();
+    return;
+  }
+  try {
+    const { conversationId, message, model = "gpt-4o-mini", mode = "chat", imageData } = req.body;
+    const limitCheck = await checkMessageLimit(userId);
+    if (!limitCheck.allowed) {
+      sendSSE(res, "error", {
+        type: "error",
+        message: `Message limit reached! You've used all ${limitCheck.limit} messages this month. Upgrade to send more messages.`,
+        code: "LIMIT_REACHED",
+        tier: limitCheck.tier,
+        limit: limitCheck.limit,
+        remaining: 0
+      });
+      res.end();
+      return;
+    }
+    let finalConversationId = conversationId;
+    if (!finalConversationId) {
+      const conversation = await storage.createConversation({
+        userId,
+        title: message.substring(0, 100),
+        model,
+        mode
+      });
+      finalConversationId = conversation.id;
+      sendSSE(res, "conversationCreated", { conversationId: finalConversationId });
+    }
+    const messageData = {
+      conversationId: finalConversationId,
+      role: "user",
+      content: message
+    };
+    if (imageData) {
+      messageData.attachments = [{
+        type: "image",
+        data: imageData,
+        mimeType: imageData.startsWith("data:image/png") ? "image/png" : "image/jpeg"
+      }];
+    }
+    await storage.createMessage(messageData);
+    try {
+      await incrementMessageCount(userId);
+    } catch (error) {
+      console.error("Failed to increment message count:", error);
+    }
+    const messages2 = await storage.getMessagesByConversationId(finalConversationId);
+    const systemPrompt = getSaintSalPrompt(mode);
+    const conversationHistory = messages2.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+      imageData: msg.attachments?.find((a) => a.type === "image")?.data
+    }));
+    const orchestratorMessages = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistory
+    ];
+    const sseSender = new SSESender(res);
+    try {
+      const fullResponse = await orchestrator.processRequest(
+        orchestratorMessages,
+        sseSender,
+        // Cast to WebSocket-like interface
+        {
+          model,
+          mode,
+          temperature: 0.7,
+          maxTokens: 4096
+        }
+      );
+      await storage.createMessage({
+        conversationId: finalConversationId,
+        role: "assistant",
+        content: fullResponse
+      });
+      try {
+        const { updateConversationMemory: updateConversationMemory2 } = await Promise.resolve().then(() => (init_websocket(), websocket_exports));
+        await updateConversationMemory2(
+          finalConversationId,
+          messages2,
+          fullResponse
+        );
+      } catch (error) {
+        console.error("Failed to update conversation memory:", error);
+      }
+      sendSSE(res, "done", {
+        type: "done",
+        conversationId: finalConversationId,
+        message: fullResponse
+      });
+    } catch (error) {
+      console.error("[Streaming] Error processing request:", error);
+      sendSSE(res, "error", {
+        type: "error",
+        message: error.message || "Failed to process request"
+      });
+    }
+  } catch (error) {
+    console.error("[Streaming] Fatal error:", error);
+    sendSSE(res, "error", {
+      type: "error",
+      message: error.message || "Internal server error"
+    });
+  } finally {
+    res.end();
+  }
+}
+var SSESender;
+var init_streaming = __esm({
+  "server/routes/streaming.ts"() {
+    "use strict";
+    init_storage();
+    init_orchestrator();
+    init_saintsal_prompt();
+    init_tier_limits();
+    SSESender = class {
+      constructor(res) {
+        this.res = res;
+      }
+      send(data) {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === "chunk") {
+            sendSSE(this.res, "chunk", parsed);
+          } else if (parsed.type === "error") {
+            sendSSE(this.res, "error", parsed);
+          } else if (parsed.type === "status") {
+            sendSSE(this.res, "status", parsed);
+          } else {
+            sendSSE(this.res, "message", parsed);
+          }
+        } catch (e) {
+          sendSSE(this.res, "message", { type: "raw", data });
+        }
+      }
+    };
+  }
+});
+
+// server/routes/image-generation.ts
+var image_generation_exports = {};
+__export(image_generation_exports, {
+  default: () => image_generation_default
+});
+import { Router } from "express";
+var router, image_generation_default;
+var init_image_generation = __esm({
+  "server/routes/image-generation.ts"() {
+    "use strict";
+    init_simple_auth();
+    router = Router();
+    router.post("/dalle", isAuthenticated, async (req, res) => {
+      try {
+        const { prompt, size = "1024x1024", quality = "standard" } = req.body;
+        if (!prompt) {
+          return res.status(400).json({ error: "Prompt is required" });
+        }
+        const OpenAI6 = await import("openai");
+        const openai3 = new OpenAI6.default({
+          apiKey: process.env.OPENAI_API_KEY
+        });
+        if (!process.env.OPENAI_API_KEY) {
+          return res.status(503).json({ error: "DALL-E service not available. Please configure OPENAI_API_KEY." });
+        }
+        console.log("[DALL-E] Generating image:", { prompt: prompt.substring(0, 50), size, quality });
+        const response = await openai3.images.generate({
+          model: "dall-e-3",
+          prompt,
+          n: 1,
+          size,
+          quality
+        });
+        const imageUrl = response.data?.[0]?.url;
+        if (!imageUrl) {
+          return res.status(500).json({ error: "Failed to generate image" });
+        }
+        console.log("[DALL-E] Image generated successfully");
+        return res.json({
+          success: true,
+          imageUrl,
+          prompt,
+          model: "dall-e-3"
+        });
+      } catch (error) {
+        console.error("[DALL-E] Error:", error);
+        return res.status(500).json({
+          error: error.message || "Failed to generate image",
+          details: error.response?.data || error.toString()
+        });
+      }
+    });
+    router.post("/grok", isAuthenticated, async (req, res) => {
+      try {
+        const { prompt, aspectRatio = "16:9" } = req.body;
+        if (!prompt) {
+          return res.status(400).json({ error: "Prompt is required" });
+        }
+        const apiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+        if (!apiKey) {
+          return res.status(503).json({ error: "Grok service not available. Please configure XAI_API_KEY or GROK_API_KEY." });
+        }
+        console.log("[Grok Image] Generating image:", { prompt: prompt.substring(0, 50), aspectRatio });
+        const response = await fetch("https://api.x.ai/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "aurora",
+            prompt,
+            aspect_ratio: aspectRatio
+          })
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[Grok Image] API Error:", response.status, errorText);
+          return res.status(response.status).json({
+            error: `Grok API error: ${response.status}`,
+            details: errorText
+          });
+        }
+        const data = await response.json();
+        const imageUrl = data.data?.[0]?.url;
+        if (!imageUrl) {
+          return res.status(500).json({ error: "Failed to generate image - no URL returned" });
+        }
+        console.log("[Grok Image] Image generated successfully");
+        return res.json({
+          success: true,
+          imageUrl,
+          prompt,
+          model: "aurora"
+        });
+      } catch (error) {
+        console.error("[Grok Image] Error:", error);
+        return res.status(500).json({
+          error: error.message || "Failed to generate image",
+          details: error.toString()
+        });
+      }
+    });
+    router.post("/gemini", isAuthenticated, async (req, res) => {
+      try {
+        const { prompt } = req.body;
+        if (!prompt) {
+          return res.status(400).json({ error: "Prompt is required" });
+        }
+        const { gemini: gemini2 } = await Promise.resolve().then(() => (init_gemini(), gemini_exports));
+        if (!gemini2.isAvailable()) {
+          return res.status(503).json({ error: "Gemini service not available. Please configure GEMINI_API_KEY." });
+        }
+        console.log("[Gemini Image] Generating image:", prompt.substring(0, 50));
+        return res.status(503).json({
+          error: "Gemini image generation coming soon! Use DALL-E for now.",
+          suggestion: "Try DALL-E 3 for high-quality image generation"
+        });
+      } catch (error) {
+        console.error("[Gemini Image] Error:", error);
+        return res.status(500).json({
+          error: error.message || "Failed to generate image",
+          details: error.toString()
+        });
+      }
+    });
+    image_generation_default = router;
+  }
+});
+
+// server/static.ts
+var static_exports = {};
+__export(static_exports, {
+  serveStatic: () => serveStatic
+});
+import express2 from "express";
+import fs2 from "fs";
+import path2 from "path";
+function serveStatic(app2) {
+  const possiblePaths = [
+    path2.resolve(import.meta.dirname, "public"),
+    // Built: dist/index.js -> dist/public
+    path2.resolve(import.meta.dirname, "..", "dist", "public"),
+    // From server/ -> ../dist/public
+    path2.resolve(process.cwd(), "dist", "public"),
+    // From project root
+    path2.resolve("/var/task", "dist", "public")
+    // Vercel serverless path
+  ];
+  console.log(`[serveStatic] import.meta.dirname: ${import.meta.dirname}`);
+  console.log(`[serveStatic] process.cwd(): ${process.cwd()}`);
+  let distPath = null;
+  for (const possiblePath of possiblePaths) {
+    console.log(`[serveStatic] Checking: ${possiblePath} - exists: ${fs2.existsSync(possiblePath)}`);
+    if (fs2.existsSync(possiblePath)) {
+      distPath = possiblePath;
+      console.log(`[serveStatic] \u2705 Found static files at: ${distPath}`);
+      break;
+    }
+  }
+  if (!distPath) {
+    console.error(`[serveStatic] \u274C Could not find build directory. Tried:`, possiblePaths);
+    app2.use("*", (_req, res) => {
+      res.status(500).json({
+        error: "Static files not found",
+        message: "The application build files could not be located. Please ensure the build completed successfully.",
+        triedPaths: possiblePaths,
+        dirname: import.meta.dirname,
+        cwd: process.cwd()
+      });
+    });
+    return;
+  }
+  console.log(`[serveStatic] Serving static files from: ${distPath}`);
+  app2.use(express2.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".js")) {
+        res.setHeader("Content-Type", "application/javascript");
+      } else if (filePath.endsWith(".css")) {
+        res.setHeader("Content-Type", "text/css");
+      } else if (filePath.endsWith(".html")) {
+        res.setHeader("Content-Type", "text/html");
+      }
+    }
+  }));
+  app2.use("*", (_req, res) => {
+    const indexPath = path2.resolve(distPath, "index.html");
+    console.log(`[serveStatic] Serving index.html from: ${indexPath}`);
+    if (fs2.existsSync(indexPath)) {
+      res.setHeader("Content-Type", "text/html");
+      res.sendFile(indexPath);
+    } else {
+      console.error(`[serveStatic] index.html not found at: ${indexPath}`);
+      res.status(404).json({
+        error: "Not found",
+        message: "The requested resource could not be found.",
+        indexPath
+      });
+    }
+  });
+}
+var init_static = __esm({
+  "server/static.ts"() {
+    "use strict";
+  }
+});
+
+// vite.config.ts
+var vite_config_exports = {};
+__export(vite_config_exports, {
+  default: () => vite_config_default
+});
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path3 from "path";
+import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+var vite_config_default;
+var init_vite_config = __esm({
+  async "vite.config.ts"() {
+    "use strict";
+    vite_config_default = defineConfig({
+      plugins: [
+        react(),
+        runtimeErrorOverlay(),
+        ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
+          await import("@replit/vite-plugin-cartographer").then(
+            (m) => m.cartographer()
+          ),
+          await import("@replit/vite-plugin-dev-banner").then(
+            (m) => m.devBanner()
+          )
+        ] : []
+      ],
+      resolve: {
+        alias: {
+          "@": path3.resolve(import.meta.dirname, "client", "src"),
+          "@shared": path3.resolve(import.meta.dirname, "shared"),
+          "@assets": path3.resolve(import.meta.dirname, "attached_assets")
+        }
+      },
+      root: path3.resolve(import.meta.dirname, "client"),
+      build: {
+        outDir: path3.resolve(import.meta.dirname, "dist/public"),
+        emptyOutDir: true
+      },
+      server: {
+        fs: {
+          strict: true,
+          deny: ["**/.*"]
+        }
+      }
+    });
+  }
+});
+
+// server/vite.ts
+var vite_exports = {};
+__export(vite_exports, {
+  log: () => log,
+  serveStatic: () => serveStatic2,
+  setupVite: () => setupVite
+});
 import express3 from "express";
+import fs3 from "fs";
+import path4 from "path";
+import { nanoid } from "nanoid";
+function log(message, source = "express") {
+  const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+async function setupVite(app2, server2) {
+  const { createServer: createViteServer, createLogger } = await import("vite");
+  const viteConfig = await init_vite_config().then(() => vite_config_exports);
+  viteLogger = createLogger();
+  const serverOptions = {
+    middlewareMode: true,
+    hmr: { server: server2 },
+    allowedHosts: true
+  };
+  viteServer = await createViteServer({
+    ...viteConfig.default,
+    configFile: false,
+    customLogger: {
+      ...viteLogger,
+      error: (msg, options) => {
+        viteLogger.error(msg, options);
+        process.exit(1);
+      }
+    },
+    server: serverOptions,
+    appType: "custom"
+  });
+  app2.use(viteServer.middlewares);
+  app2.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      const clientTemplate = path4.resolve(
+        import.meta.dirname,
+        "..",
+        "client",
+        "index.html"
+      );
+      let template = await fs3.promises.readFile(clientTemplate, "utf-8");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${nanoid()}"`
+      );
+      const page = await viteServer.transformIndexHtml(url, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+    } catch (e) {
+      viteServer.ssrFixStacktrace(e);
+      next(e);
+    }
+  });
+}
+function serveStatic2(app2) {
+  const possiblePaths = [
+    path4.resolve(import.meta.dirname, "public"),
+    // Built: dist/index.js -> dist/public
+    path4.resolve(import.meta.dirname, "..", "dist", "public"),
+    // From server/ -> ../dist/public
+    path4.resolve(process.cwd(), "dist", "public"),
+    // From project root
+    path4.resolve("/var/task", "dist", "public")
+    // Vercel serverless path
+  ];
+  console.log(`[serveStatic] import.meta.dirname: ${import.meta.dirname}`);
+  console.log(`[serveStatic] process.cwd(): ${process.cwd()}`);
+  let distPath = null;
+  for (const possiblePath of possiblePaths) {
+    console.log(`[serveStatic] Checking: ${possiblePath} - exists: ${fs3.existsSync(possiblePath)}`);
+    if (fs3.existsSync(possiblePath)) {
+      distPath = possiblePath;
+      console.log(`[serveStatic] \u2705 Found static files at: ${distPath}`);
+      break;
+    }
+  }
+  if (!distPath) {
+    console.error(`[serveStatic] \u274C Could not find build directory. Tried:`, possiblePaths);
+    app2.use("*", (_req, res) => {
+      res.status(500).json({
+        error: "Static files not found",
+        message: "The application build files could not be located. Please ensure the build completed successfully.",
+        triedPaths: possiblePaths,
+        dirname: import.meta.dirname,
+        cwd: process.cwd()
+      });
+    });
+    return;
+  }
+  console.log(`[serveStatic] Serving static files from: ${distPath}`);
+  app2.use(express3.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".js")) {
+        res.setHeader("Content-Type", "application/javascript");
+      } else if (filePath.endsWith(".css")) {
+        res.setHeader("Content-Type", "text/css");
+      } else if (filePath.endsWith(".html")) {
+        res.setHeader("Content-Type", "text/html");
+      }
+    }
+  }));
+  app2.use("*", (_req, res) => {
+    const indexPath = path4.resolve(distPath, "index.html");
+    console.log(`[serveStatic] Serving index.html from: ${indexPath}`);
+    if (fs3.existsSync(indexPath)) {
+      res.setHeader("Content-Type", "text/html");
+      res.sendFile(indexPath);
+    } else {
+      console.error(`[serveStatic] index.html not found at: ${indexPath}`);
+      res.status(404).json({
+        error: "Not found",
+        message: "The requested resource could not be found.",
+        indexPath
+      });
+    }
+  });
+}
+var viteServer, viteLogger;
+var init_vite = __esm({
+  "server/vite.ts"() {
+    "use strict";
+    viteServer = null;
+    viteLogger = null;
+  }
+});
+
+// server/index.ts
+import "dotenv/config";
+import express4 from "express";
 import { createServer } from "http";
+import { WebSocketServer } from "ws";
 
 // server/routes.ts
 init_storage();
 init_schema();
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
+import Anthropic5 from "@anthropic-ai/sdk";
+import OpenAI5 from "openai";
 
 // server/fileprocessor.ts
 import { promises as fs } from "fs";
@@ -1382,15 +3890,15 @@ var fileProcessor = new FileProcessor();
 // server/routes.ts
 init_simple_auth();
 import multer from "multer";
-var anthropic = null;
-var openai = null;
+var anthropic2 = null;
+var openai2 = null;
 if (process.env.ANTHROPIC_API_KEY) {
-  anthropic = new Anthropic({
+  anthropic2 = new Anthropic5({
     apiKey: process.env.ANTHROPIC_API_KEY
   });
 }
 if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({
+  openai2 = new OpenAI5({
     apiKey: process.env.OPENAI_API_KEY
   });
 }
@@ -1409,6 +3917,8 @@ function sanitizeUser(user) {
 }
 async function registerRoutes(app2) {
   await setupSimpleAuth(app2);
+  const { handleStreamingChat: handleStreamingChat2 } = await Promise.resolve().then(() => (init_streaming(), streaming_exports));
+  app2.post("/api/chat/stream", isAuthenticated, handleStreamingChat2);
   app2.get("/api/conversations", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session.userId;
@@ -1751,11 +4261,11 @@ async function registerRoutes(app2) {
       if (!req.file) {
         return res.status(400).json({ message: "Audio file is required" });
       }
-      if (!openai) {
+      if (!openai2) {
         return res.status(503).json({ message: "Speech recognition not available" });
       }
       const file = new File([req.file.buffer], "audio.webm", { type: req.file.mimetype });
-      const transcription = await openai.audio.transcriptions.create({
+      const transcription = await openai2.audio.transcriptions.create({
         file,
         model: "whisper-1",
         language: "en"
@@ -1768,77 +4278,12 @@ async function registerRoutes(app2) {
   });
 }
 
-// server/static.ts
-import express2 from "express";
-import fs2 from "fs";
-import path2 from "path";
-function serveStatic(app2) {
-  const possiblePaths = [
-    path2.resolve(import.meta.dirname, "public"),
-    // Built: dist/index.js -> dist/public
-    path2.resolve(import.meta.dirname, "..", "dist", "public"),
-    // From server/ -> ../dist/public
-    path2.resolve(process.cwd(), "dist", "public"),
-    // From project root
-    path2.resolve("/var/task", "dist", "public")
-    // Vercel serverless path
-  ];
-  console.log(`[serveStatic] import.meta.dirname: ${import.meta.dirname}`);
-  console.log(`[serveStatic] process.cwd(): ${process.cwd()}`);
-  let distPath = null;
-  for (const possiblePath of possiblePaths) {
-    console.log(`[serveStatic] Checking: ${possiblePath} - exists: ${fs2.existsSync(possiblePath)}`);
-    if (fs2.existsSync(possiblePath)) {
-      distPath = possiblePath;
-      console.log(`[serveStatic] \u2705 Found static files at: ${distPath}`);
-      break;
-    }
-  }
-  if (!distPath) {
-    console.error(`[serveStatic] \u274C Could not find build directory. Tried:`, possiblePaths);
-    app2.use("*", (_req, res) => {
-      res.status(500).json({
-        error: "Static files not found",
-        message: "The application build files could not be located. Please ensure the build completed successfully.",
-        triedPaths: possiblePaths,
-        dirname: import.meta.dirname,
-        cwd: process.cwd()
-      });
-    });
-    return;
-  }
-  console.log(`[serveStatic] Serving static files from: ${distPath}`);
-  app2.use(express2.static(distPath, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith(".js")) {
-        res.setHeader("Content-Type", "application/javascript");
-      } else if (filePath.endsWith(".css")) {
-        res.setHeader("Content-Type", "text/css");
-      } else if (filePath.endsWith(".html")) {
-        res.setHeader("Content-Type", "text/html");
-      }
-    }
-  }));
-  app2.use("*", (_req, res) => {
-    const indexPath = path2.resolve(distPath, "index.html");
-    console.log(`[serveStatic] Serving index.html from: ${indexPath}`);
-    if (fs2.existsSync(indexPath)) {
-      res.setHeader("Content-Type", "text/html");
-      res.sendFile(indexPath);
-    } else {
-      console.error(`[serveStatic] index.html not found at: ${indexPath}`);
-      res.status(404).json({
-        error: "Not found",
-        message: "The requested resource could not be found.",
-        indexPath
-      });
-    }
-  });
-}
-
-// server/index.vercel.ts
-var app = express3();
+// server/index.ts
+init_websocket();
+var app = express4();
 var server = createServer(app);
+var isVercel = !!process.env.VERCEL;
+var isServerless = process.env.VERCEL && process.env.VERCEL_ENV && !process.env.VERCEL_NODE_RUNTIME;
 var isInitialized = false;
 var initError = null;
 var initPromise = (async () => {
@@ -1848,39 +4293,60 @@ var initPromise = (async () => {
   } catch (error) {
     initError = error;
     console.error("[Server] Initialization failed:", error);
-    console.error("[Server] Error stack:", error.stack);
+    throw error;
   }
 })();
+var allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+  "http://localhost:5000",
+  "https://chat-cookin-knowledge-saint-*.vercel.app"
+].filter(Boolean);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.filter((allowed) => !!allowed).some((allowed) => origin.includes(allowed.replace("*", ""))) || allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 app.use(
-  express3.json({
+  express4.json({
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     }
   })
 );
-app.use(express3.urlencoded({ extended: false }));
-app.use(async (req, res, next) => {
-  try {
-    await initPromise;
-    if (initError) {
-      return res.status(500).json({
-        error: "Server initialization failed",
-        message: initError.message,
-        details: "The server failed to initialize. Check environment variables and database connection."
+app.use(express4.urlencoded({ extended: false }));
+if (isVercel) {
+  app.use(async (req, res, next) => {
+    try {
+      await initPromise;
+      if (initError) {
+        return res.status(500).json({
+          error: "Server initialization failed",
+          message: initError.message,
+          details: "The server failed to initialize. Check environment variables and database connection."
+        });
+      }
+      next();
+    } catch (error) {
+      res.status(500).json({
+        error: "Server initialization error",
+        message: error.message,
+        details: "An error occurred during server initialization."
       });
     }
-    next();
-  } catch (error) {
-    res.status(500).json({
-      error: "Server initialization error",
-      message: error.message,
-      details: "An error occurred during server initialization."
-    });
-  }
-});
+  });
+}
 app.use((req, res, next) => {
   const start = Date.now();
-  const path3 = req.path;
+  const path5 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -1889,14 +4355,14 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path3.startsWith("/api")) {
+    if (path5.startsWith("/api")) {
       const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         second: "2-digit",
         hour12: true
       });
-      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${path5} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -1909,12 +4375,10 @@ app.use((req, res, next) => {
   next();
 });
 async function initializeApp() {
-  console.log("[Server] Initializing Vercel serverless function...");
   try {
     await registerRoutes(app);
-    console.log("[Server] \u2705 API routes registered");
   } catch (error) {
-    console.error("[Server] Error registering routes:", error);
+    console.error("[initializeApp] Error registering routes:", error);
     app.get("/api/health", (req, res) => {
       res.json({
         status: "degraded",
@@ -1922,31 +4386,124 @@ async function initializeApp() {
         error: error.message
       });
     });
-    throw error;
+  }
+  if (!isServerless) {
+    const wss = new WebSocketServer({ server, path: "/ws" });
+    wss.on("connection", async (ws3, request) => {
+      try {
+        const cookieHeader = request.headers.cookie;
+        if (!cookieHeader) {
+          console.error("WebSocket connection rejected: No session cookie");
+          ws3.close(1008, "Unauthorized - No session");
+          return;
+        }
+        const cookies = cookieHeader.split(";").reduce((acc, cookie) => {
+          const [key, value] = cookie.trim().split("=");
+          acc[key] = value;
+          return acc;
+        }, {});
+        const sessionCookie = cookies["connect.sid"];
+        if (!sessionCookie) {
+          console.error("WebSocket connection rejected: No session ID");
+          ws3.close(1008, "Unauthorized - No session ID");
+          return;
+        }
+        const sessionId = decodeURIComponent(sessionCookie).split(".")[0].substring(2);
+        const { sessionStore: sessionStore2 } = await Promise.resolve().then(() => (init_simple_auth(), simple_auth_exports));
+        sessionStore2.get(sessionId, async (err, session2) => {
+          if (err || !session2 || !session2.userId) {
+            console.error(
+              "WebSocket connection rejected: Invalid or expired session",
+              err
+            );
+            ws3.close(1008, "Unauthorized - Invalid session");
+            return;
+          }
+          const userId = session2.userId;
+          const email = session2.user?.email;
+          if (!userId || !email) {
+            console.error("WebSocket connection rejected: No user in session");
+            ws3.close(1008, "Unauthorized - No user");
+            return;
+          }
+          console.log(`WebSocket authenticated for user: ${email} (${userId})`);
+          handleWebSocket(ws3, request, userId, email);
+        });
+      } catch (error) {
+        console.error("WebSocket connection error:", error);
+        ws3.close(1011, "Internal server error");
+      }
+    });
+  } else {
+    console.log("[Server] Serverless detected - WebSockets disabled, using SSE fallback");
   }
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    console.error(`[Server] Error ${status}:`, message);
-    console.error(err.stack);
+    console.error("[Error Handler]", err);
     res.status(status).json({ message });
   });
-  console.log("[Server] Setting up static file serving...");
-  serveStatic(app);
-  console.log("[Server] \u2705 Static files configured");
-  console.log("[Server] \u2705 Initialization complete");
+  if (isVercel) {
+    console.log("[Server] Vercel detected - using static file server");
+    const { serveStatic: serveStatic3 } = await Promise.resolve().then(() => (init_static(), static_exports));
+    serveStatic3(app);
+  } else {
+    try {
+      console.log("[Server] Loading vite module for local development...");
+      const { setupVite: setupVite2, serveStatic: serveStatic3, log: log2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
+      console.log("[Server] Vite module loaded successfully");
+      const fs4 = await import("fs");
+      const path5 = await import("path");
+      const distPath = path5.resolve(import.meta.dirname, "..", "dist", "public");
+      const hasBuild = fs4.existsSync(distPath);
+      const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
+      log2(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
+      log2(`[Server] Build exists: ${hasBuild}`);
+      log2(`[Server] isDevelopment: ${isDevelopment}`);
+      log2(`[Server] Using ${isDevelopment ? "Vite dev server" : "static build"}`);
+      if (isDevelopment) {
+        await setupVite2(app, server);
+      } else {
+        serveStatic3(app);
+      }
+    } catch (error) {
+      console.error("[Server] Error loading vite module:", error);
+      app.use("*", (_req, res) => {
+        res.status(500).send(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>Server Error</title></head>
+            <body>
+              <h1>Server Configuration Error</h1>
+              <p>The server failed to initialize properly. Error: ${error instanceof Error ? error.message : "Unknown error"}</p>
+              <pre>${error instanceof Error ? error.stack : ""}</pre>
+            </body>
+          </html>
+        `);
+      });
+    }
+  }
+  if (!isVercel) {
+    const port = parseInt(process.env.PORT || "5000", 10);
+    server.listen(port, "0.0.0.0", () => {
+      const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      });
+      console.log(`${formattedTime} [express] serving on port ${port}`);
+    });
+  }
 }
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
   console.error("[Server] Error stack:", error.stack);
+  if (!isVercel) {
+    process.exit(1);
+  }
 });
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("[Server] Unhandled Rejection at:", promise, "reason:", reason);
-});
-process.on("uncaughtException", (error) => {
-  console.error("[Server] Uncaught Exception:", error);
-});
-var index_vercel_default = app;
+var index_default = app;
 export {
-  index_vercel_default as default
+  index_default as default
 };

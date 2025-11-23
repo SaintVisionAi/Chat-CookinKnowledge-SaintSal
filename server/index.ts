@@ -3,8 +3,8 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import { registerRoutes } from "./routes";
-import { handleWebSocket } from "./websocket";
+import { registerRoutes } from "./routes.js";
+import { handleWebSocket } from "./websocket.js";
 
 declare module "http" {
   interface IncomingMessage {
@@ -47,7 +47,7 @@ const allowedOrigins = [
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && (allowedOrigins.some(allowed => origin.includes(allowed.replace('*', ''))) || allowedOrigins.includes(origin))) {
+  if (origin && allowedOrigins.filter((allowed): allowed is string => !!allowed).some(allowed => origin.includes(allowed.replace('*', ''))) || allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');

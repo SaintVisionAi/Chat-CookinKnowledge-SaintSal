@@ -48,8 +48,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isProduction, // Secure cookies in production
-      sameSite: isProduction ? "strict" : "lax",
+      secure: isProduction === true || isProduction === "true", // Secure cookies in production
+      sameSite: (isProduction === true || isProduction === "true") ? "strict" : "lax",
       maxAge: sessionTtl,
     },
   });
