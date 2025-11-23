@@ -233,4 +233,4 @@ initPromise.catch((error) => {
 
 // Export the app for Vercel serverless functions
 // Vercel's @vercel/node will automatically handle Express apps
-export { app as default };
+export default app;

@@ -1,26 +1,14 @@
 {
   "buildCommand": "npm run build",
-  "builds": [
+  "rewrites": [
     {
-      "src": "dist/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["dist/public/**"]
-      }
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ],
-  "routes": [
-    {
-      "src": "/ws",
-      "dest": "dist/index.js"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "dist/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "dist/index.js"
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "dist/**"
     }
-  ]
+  }
 }
