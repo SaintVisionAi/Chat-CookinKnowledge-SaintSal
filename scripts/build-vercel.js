@@ -45,6 +45,14 @@ const externalPackages = [
   'react-dom',
 ];
 
+// Node.js built-in modules that should be external
+const nodeBuiltins = [
+  'fs', 'path', 'crypto', 'http', 'https', 'url', 'util', 'stream',
+  'events', 'buffer', 'querystring', 'zlib', 'tty', 'os', 'net',
+  'dns', 'child_process', 'cluster', 'dgram', 'readline', 'repl',
+  'string_decoder', 'tls', 'vm', 'worker_threads'
+];
+
 try {
   await build({
     entryPoints: ['server/index.vercel.ts'],
@@ -53,11 +61,14 @@ try {
     target: 'node18',
     format: 'esm',
     outfile: 'api/index.js',
-    external: externalPackages,
+    external: [...externalPackages, ...nodeBuiltins],
     // Do NOT use packages: 'external' - this would externalize everything including vite
     sourcemap: false,
     minify: false, // Don't minify for better error messages
     logLevel: 'info',
+    banner: {
+      js: '// @ts-nocheck\n',
+    },
   });
   
   console.log('[Build] ✅ Vercel serverless function built successfully');
