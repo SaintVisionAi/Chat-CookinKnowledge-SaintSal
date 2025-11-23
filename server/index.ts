@@ -29,10 +29,18 @@ const initPromise = (async () => {
   try {
     await initializeApp();
     isInitialized = true;
+    console.log("[Server] ✅ Initialization complete");
   } catch (error) {
     initError = error as Error;
-    console.error("[Server] Initialization failed:", error);
-    throw error;
+    console.error("[Server] ❌ Initialization failed:", error);
+    console.error("[Server] Error details:", {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+    });
+    // Don't throw on Vercel - let middleware handle gracefully
+    if (!isVercel) {
+      throw error;
+    }
   }
 })();
 
@@ -305,12 +313,13 @@ async function initializeApp() {
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
   console.error("[Server] Error stack:", (error as Error).stack);
+  // On Vercel, don't exit - let the middleware handle the error gracefully
+  // This prevents FUNCTION_INVOCATION_FAILED errors
   if (!isVercel) {
     process.exit(1);
   }
-  // On Vercel, don't exit - let the middleware handle the error
 });
 
 // Export the app for Vercel serverless functions
 // Vercel's @vercel/node will automatically handle Express apps
-export default app;
+export { app as default };

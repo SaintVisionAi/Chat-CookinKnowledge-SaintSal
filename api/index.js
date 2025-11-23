@@ -4290,10 +4290,17 @@ var initPromise = (async () => {
   try {
     await initializeApp();
     isInitialized = true;
+    console.log("[Server] \u2705 Initialization complete");
   } catch (error) {
     initError = error;
-    console.error("[Server] Initialization failed:", error);
-    throw error;
+    console.error("[Server] \u274C Initialization failed:", error);
+    console.error("[Server] Error details:", {
+      message: error.message,
+      stack: error.stack
+    });
+    if (!isVercel) {
+      throw error;
+    }
   }
 })();
 var allowedOrigins = [
@@ -4503,7 +4510,6 @@ initPromise.catch((error) => {
     process.exit(1);
   }
 });
-var index_default = app;
 export {
-  index_default as default
+  app as default
 };
