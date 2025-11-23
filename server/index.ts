@@ -7,15 +7,33 @@ import { registerRoutes } from "./routes";
 import { handleWebSocket } from "./websocket";
 import { setupVite, serveStatic, log } from "./vite";
 
-const app = express();
-const server = createServer(app);
-
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
 }
 
+const app = express();
+const server = createServer(app);
+
+// Check if running on Vercel (serverless)
+const isVercel = !!process.env.VERCEL;
+
+// Track initialization state
+let isInitialized = false;
+let initError: Error | null = null;
+const initPromise = (async () => {
+  try {
+    await initializeApp();
+    isInitialized = true;
+  } catch (error) {
+    initError = error as Error;
+    console.error("[Server] Initialization failed:", error);
+    throw error;
+  }
+})();
+
+// Middleware setup (synchronous, outside async function)
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -24,6 +42,30 @@ app.use(
   }),
 );
 app.use(express.urlencoded({ extended: false }));
+
+// For Vercel: ensure app is initialized before handling ANY requests
+// This MUST be before route registration
+if (isVercel) {
+  app.use(async (req, res, next) => {
+    try {
+      await initPromise;
+      if (initError) {
+        return res.status(500).json({ 
+          error: "Server initialization failed",
+          message: initError.message,
+          details: "The server failed to initialize. Check environment variables and database connection."
+        });
+      }
+      next();
+    } catch (error) {
+      res.status(500).json({ 
+        error: "Server initialization error",
+        message: (error as Error).message,
+        details: "An error occurred during server initialization."
+      });
+    }
+  });
+}
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -55,12 +97,13 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+async function initializeApp() {
   // ✅ Register API routes (includes setupAuth with Replit OIDC)
   await registerRoutes(app);
 
-  // Setup WebSocket server
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  // Setup WebSocket server (only if not on Vercel - WebSockets don't work in serverless)
+  if (!isVercel) {
+    const wss = new WebSocketServer({ server, path: "/ws" });
 
   wss.on("connection", async (ws: any, request: any) => {
     try {
@@ -124,6 +167,15 @@ app.use((req, res, next) => {
       ws.close(1011, "Internal server error");
     }
   });
+  } else {
+    // On Vercel, provide a helpful error for WebSocket attempts
+    app.get("/ws", (req, res) => {
+      res.status(503).json({ 
+        error: "WebSocket not available",
+        message: "WebSocket connections are not supported in Vercel serverless functions. Please use HTTP polling or upgrade to a platform that supports persistent connections."
+      });
+    });
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -152,18 +204,33 @@ app.use((req, res, next) => {
   console.log(`[Server] isDevelopment: ${isDevelopment}`);
   console.log(`[Server] Using ${isDevelopment ? 'Vite dev server' : 'static build'}`);
   
-  if (isDevelopment) {
+  if (isDevelopment && !isVercel) {
+    // Only use Vite dev server in local development, not on Vercel
     await setupVite(app, server);
   } else {
+    // On Vercel or production, serve static files
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
-  });
-})();
+  // Only start listening if NOT on Vercel (serverless functions don't need this)
+  if (!isVercel) {
+    const port = parseInt(process.env.PORT || "5000", 10);
+    server.listen(port, "0.0.0.0", () => {
+      log(`serving on port ${port}`);
+    });
+  }
+}
+
+// Start initialization
+initPromise.catch((error) => {
+  console.error("[Server] Fatal initialization error:", error);
+  console.error("[Server] Error stack:", (error as Error).stack);
+  if (!isVercel) {
+    process.exit(1);
+  }
+  // On Vercel, don't exit - let the middleware handle the error
+});
+
+// Export the app for Vercel serverless functions
+// Vercel's @vercel/node will automatically handle Express apps
+export { app as default };
