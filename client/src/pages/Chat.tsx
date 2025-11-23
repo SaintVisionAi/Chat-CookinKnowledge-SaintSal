@@ -365,9 +365,9 @@ export default function ChatFixed() {
       setIsReconnecting(false);
     }
 
-    // Construct WebSocket URL correctly using origin
-    const wsUrl = new URL("/ws", window.location.origin);
-    wsUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    // Use config helper for WebSocket URL (supports split architecture)
+    const { getWebSocketUrl } = await import("@/lib/config");
+    const wsUrl = new URL(getWebSocketUrl("/ws"));
     console.log(`[Chat] Connecting to WebSocket (attempt ${attempt}):`, wsUrl.href);
 
     const ws = new WebSocket(wsUrl.href);

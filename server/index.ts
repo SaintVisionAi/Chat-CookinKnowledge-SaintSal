@@ -36,6 +36,29 @@ const initPromise = (async () => {
   }
 })();
 
+// CORS configuration for split architecture (frontend on Vercel, backend on Render/Railway)
+// Allow frontend origin and localhost for development
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'https://chat-cookin-knowledge-saint-*.vercel.app',
+].filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (allowedOrigins.some(allowed => origin.includes(allowed.replace('*', ''))) || allowedOrigins.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Middleware setup (synchronous, outside async function)
 app.use(
   express.json({
