@@ -11,6 +11,7 @@ export default function Register() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +53,8 @@ export default function Register() {
         body: JSON.stringify({ 
           firstName,
           lastName,
-          email, 
+          email,
+          phone,
           password 
         }),
       });
@@ -137,6 +139,19 @@ export default function Register() {
                 required
                 disabled={isLoading}
                 data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 (555) 123-4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                disabled={isLoading}
+                data-testid="input-phone"
               />
             </div>
             <div className="space-y-2">
