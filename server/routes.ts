@@ -50,6 +50,10 @@ export async function registerRoutes(app: Express) {
   // ✅ SETUP SIMPLE EMAIL/PASSWORD AUTHENTICATION
   await setupSimpleAuth(app);
 
+  // ✅ SSE Streaming endpoint (replaces WebSocket for serverless)
+  const { handleStreamingChat } = await import('./routes/streaming');
+  app.post('/api/chat/stream', isAuthenticated, handleStreamingChat);
+
   // Conversations (protected by isAuthenticated)
   app.get("/api/conversations", isAuthenticated, async (req: any, res: Response) => {
     try {

@@ -195,6 +195,158 @@ export default function ChatFixed() {
     return Math.min(1000 * Math.pow(2, attempt), 8000);
   };
 
+  // SSE Streaming connection (replaces WebSocket for serverless)
+  const connectSSE = async (
+    conversationId: string,
+    messageText: string,
+    attempt: number = 0
+  ): Promise<void> => {
+    const MAX_RETRIES = 3;
+
+    if (attempt > 0) {
+      const delay = getRetryDelay(attempt - 1);
+      setIsReconnecting(true);
+      toast({
+        title: "Reconnecting...",
+        description: `Attempt ${attempt}/${MAX_RETRIES}`,
+      });
+      await new Promise(resolve => setTimeout(resolve, delay));
+      setIsReconnecting(false);
+    }
+
+    let fullMessage = "";
+    let eventSource: EventSource | null = null;
+
+    try {
+      // Use POST with fetch for SSE (EventSource only supports GET)
+      const response = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          conversationId,
+          message: messageText,
+          model: selectedModel,
+          mode: selectedMode,
+          imageData: selectedImage,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      // Parse SSE stream
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          const [eventLine, dataLine] = line.split("\n");
+          const event = eventLine.replace("event: ", "").trim();
+          const data = dataLine.replace("data: ", "").trim();
+
+          try {
+            const parsed = JSON.parse(data);
+
+            if (event === "chunk" && parsed.content) {
+              setStreamingMessage((prev) => prev + parsed.content);
+              fullMessage += parsed.content;
+            } else if (event === "status") {
+              console.log("[Status]", parsed.message);
+            } else if (event === "conversationCreated") {
+              setSelectedConversationId(parsed.conversationId);
+            } else if (event === "done") {
+              // Auto-speak in voice mode OR if auto-speak is enabled
+              if ((selectedMode === "voice" || autoSpeak) && fullMessage) {
+                try {
+                  const ttsResponse = await fetch("/api/voice/tts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ text: fullMessage }),
+                  });
+
+                  if (ttsResponse.ok) {
+                    const audioBlob = await ttsResponse.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    await audio.play();
+                  } else {
+                    speak(fullMessage);
+                  }
+                } catch (error) {
+                  console.error("TTS error:", error);
+                  speak(fullMessage);
+                }
+              }
+
+              setIsStreaming(false);
+              setStreamingMessage("");
+              queryClient.invalidateQueries({
+                queryKey: ["/api/conversations", conversationId || parsed.conversationId, "messages"],
+              });
+              return;
+            } else if (event === "error") {
+              let errorMessage = parsed.message || "Failed to send message";
+              
+              if (errorMessage.includes("Rate limit")) {
+                errorMessage = "AI service is busy. Please try again in a moment.";
+              } else if (errorMessage.includes("Unauthorized")) {
+                errorMessage = "Session expired. Please log in again.";
+              } else if (errorMessage.includes("not configured")) {
+                errorMessage = "AI service temporarily unavailable. Contact support if this persists.";
+              }
+
+              toast({
+                title: "Error",
+                description: errorMessage,
+                variant: "destructive",
+              });
+              setIsStreaming(false);
+              setStreamingMessage("");
+              return;
+            }
+          } catch (e) {
+            console.error("[SSE] Parse error:", e, "Data:", data);
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("[SSE] Connection error:", error);
+      
+      if (attempt < MAX_RETRIES) {
+        await connectSSE(conversationId, messageText, attempt + 1);
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: "Unable to connect to AI service after multiple attempts. Please try again later.",
+          variant: "destructive",
+        });
+        setIsStreaming(false);
+        setStreamingMessage("");
+        setRetryCount(0);
+      }
+    }
+  };
+
+  // Legacy WebSocket connection (for local development)
   const connectWebSocket = async (
     conversationId: string,
     messageText: string,
@@ -402,8 +554,14 @@ export default function ChatFixed() {
     setStreamingMessage("");
     setRetryCount(0);
 
-    // Start WebSocket connection with retry logic
-    await connectWebSocket(conversationId, messageText, 0);
+    // Use SSE for serverless (Vercel), fallback to WebSocket for local
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      // Local development - use WebSocket
+      await connectWebSocket(conversationId, messageText, 0);
+    } else {
+      // Production/serverless - use SSE
+      await connectSSE(conversationId, messageText, 0);
+    }
   };
 
   const handleStopGeneration = () => {

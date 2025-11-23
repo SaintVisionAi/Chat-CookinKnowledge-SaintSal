@@ -9,6 +9,11 @@ import { codeAgent } from './codeagent';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
+// WebSocket-like interface for streaming (works with both WebSocket and SSE)
+export interface StreamSender {
+  send(data: string): void;
+}
+
 interface OrchestratorMessage {
   role: string;
   content: string;
@@ -47,7 +52,7 @@ export class AIOrchestrator {
    */
   async processRequest(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     const { model, mode = 'chat' } = options;
@@ -98,7 +103,7 @@ export class AIOrchestrator {
    */
   private async handleSearch(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     ws.send(JSON.stringify({
@@ -135,7 +140,7 @@ export class AIOrchestrator {
    */
   private async handleResearch(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     // Get the last user message as the research question
@@ -166,7 +171,7 @@ export class AIOrchestrator {
    */
   private async handleCode(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     // Get the last user message as the code request
@@ -203,7 +208,7 @@ export class AIOrchestrator {
    */
   private async handleVision(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     if (!gemini.isAvailable()) {
@@ -237,7 +242,7 @@ export class AIOrchestrator {
    */
   private async handleVoice(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     if (!elevenLabs.isAvailable()) {
@@ -295,7 +300,7 @@ export class AIOrchestrator {
    */
   private async handleGrok(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     if (!grok.isAvailable()) {
@@ -318,7 +323,7 @@ export class AIOrchestrator {
    */
   private async handleGemini(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     if (!gemini.isAvailable()) {
@@ -337,7 +342,7 @@ export class AIOrchestrator {
    */
   private async handleClaude(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     if (!this.anthropic) {
@@ -368,7 +373,7 @@ export class AIOrchestrator {
    */
   private async handleOpenAI(
     messages: OrchestratorMessage[],
-    ws: WebSocket,
+    ws: WebSocket | StreamSender,
     options: OrchestratorOptions
   ): Promise<string> {
     if (!this.openai) {
