@@ -243,13 +243,19 @@ async function initializeApp() {
   // Serve static files AFTER API routes
   // This ensures API routes take precedence, and static files are a fallback
   if (isVercel) {
-    // On Vercel, use the static-only module (no Vite/Rollup dependencies)
-    console.log('[Server] Vercel detected - using static file server');
+    // On Vercel, ALWAYS use the static-only module (no Vite/Rollup dependencies)
+    // This prevents Rollup from being bundled or required at runtime
+    console.log('[Server] Vercel detected - using static file server (NO VITE)');
     const { serveStatic } = await import("./static.js");
     serveStatic(app);
   } else {
-    // Local development or production: use vite.ts
+    // Local development ONLY: use vite.ts
+    // This code path should NEVER execute on Vercel
     try {
+      // Double-check we're not on Vercel before importing vite
+      if (process.env.VERCEL) {
+        throw new Error('Vite should not be imported on Vercel - this is a safety check');
+      }
       console.log('[Server] Loading vite module for local development...');
       const { setupVite, serveStatic, log } = await import("./vite.js");
       console.log('[Server] Vite module loaded successfully');
@@ -277,20 +283,10 @@ async function initializeApp() {
       }
     } catch (error) {
       console.error('[Server] Error loading vite module:', error);
-      // Fallback: serve a basic error page
-      app.use("*", (_req, res) => {
-        res.status(500).send(`
-          <!DOCTYPE html>
-          <html>
-            <head><title>Server Error</title></head>
-            <body>
-              <h1>Server Configuration Error</h1>
-              <p>The server failed to initialize properly. Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
-              <pre>${error instanceof Error ? error.stack : ''}</pre>
-            </body>
-          </html>
-        `);
-      });
+      // Fallback to static serving if vite fails (should never happen on Vercel)
+      console.log('[Server] Falling back to static file server');
+      const { serveStatic } = await import("./static.js");
+      serveStatic(app);
     }
   }
 

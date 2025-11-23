@@ -44,6 +44,19 @@ const externalPackages = [
   // React (for SSR if needed)
   'react',
   'react-dom',
+  
+  // CRITICAL: Exclude Vite/Rollup to prevent bundling in production
+  'vite',
+  '@vitejs/plugin-react',
+  'rollup',
+  '@rollup/rollup-linux-x64-gnu',
+  '@rollup/rollup-darwin-x64',
+  '@rollup/rollup-darwin-arm64',
+  '@rollup/rollup-win32-x64-msvc',
+  '@rollup/rollup-win32-arm64-msvc',
+  '@rollup/rollup-linux-arm64-gnu',
+  '@rollup/rollup-linux-arm64-musl',
+  '@rollup/rollup-linux-x64-musl',
 ];
 
 // Node.js built-in modules that should be external
@@ -62,7 +75,15 @@ try {
     target: 'node18',
     format: 'esm',
     outfile: 'api/index.js',
-    external: [...externalPackages, ...nodeBuiltins],
+    external: [
+      ...externalPackages, 
+      ...nodeBuiltins,
+      // CRITICAL: Explicitly exclude vite.ts and related files from bundle
+      './vite.js',
+      './vite',
+      '../vite.config',
+      '../vite.config.js',
+    ],
     // Mark all Node.js built-ins as external
     packages: 'external', // Externalize all node_modules - only bundle our code
     sourcemap: false,
@@ -71,6 +92,19 @@ try {
     // Ensure imports are resolved correctly for ESM
     mainFields: ['module', 'main'],
     resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+    // Exclude vite.ts from being analyzed/bundled
+    plugins: [{
+      name: 'exclude-vite',
+      setup(build) {
+        // Mark vite.ts as external so it's never bundled
+        build.onResolve({ filter: /^\.\/vite\.(js|ts)$/ }, () => {
+          return { external: true };
+        });
+        build.onResolve({ filter: /^\.\.\/vite\.config/ }, () => {
+          return { external: true };
+        });
+      },
+    }],
   });
   
   // Post-process the bundle to fix any directory imports

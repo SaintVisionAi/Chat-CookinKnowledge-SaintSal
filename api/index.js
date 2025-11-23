@@ -3450,194 +3450,9 @@ var init_static = __esm({
   }
 });
 
-// vite.config.ts
-var vite_config_exports = {};
-__export(vite_config_exports, {
-  default: () => vite_config_default
-});
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path3 from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-var vite_config_default;
-var init_vite_config = __esm({
-  async "vite.config.ts"() {
-    "use strict";
-    vite_config_default = defineConfig({
-      plugins: [
-        react(),
-        runtimeErrorOverlay(),
-        ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
-          await import("@replit/vite-plugin-cartographer").then(
-            (m) => m.cartographer()
-          ),
-          await import("@replit/vite-plugin-dev-banner").then(
-            (m) => m.devBanner()
-          )
-        ] : []
-      ],
-      resolve: {
-        alias: {
-          "@": path3.resolve(import.meta.dirname, "client", "src"),
-          "@shared": path3.resolve(import.meta.dirname, "shared"),
-          "@assets": path3.resolve(import.meta.dirname, "attached_assets")
-        }
-      },
-      root: path3.resolve(import.meta.dirname, "client"),
-      build: {
-        outDir: path3.resolve(import.meta.dirname, "dist/public"),
-        emptyOutDir: true
-      },
-      server: {
-        fs: {
-          strict: true,
-          deny: ["**/.*"]
-        }
-      }
-    });
-  }
-});
-
-// server/vite.ts
-var vite_exports = {};
-__export(vite_exports, {
-  log: () => log,
-  serveStatic: () => serveStatic2,
-  setupVite: () => setupVite
-});
-import express3 from "express";
-import fs3 from "fs";
-import path4 from "path";
-import { nanoid } from "nanoid";
-function log(message, source = "express") {
-  const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true
-  });
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-async function setupVite(app2, server2) {
-  const { createServer: createViteServer, createLogger } = await import("vite");
-  const viteConfig = await init_vite_config().then(() => vite_config_exports);
-  viteLogger = createLogger();
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server: server2 },
-    allowedHosts: true
-  };
-  viteServer = await createViteServer({
-    ...viteConfig.default,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      }
-    },
-    server: serverOptions,
-    appType: "custom"
-  });
-  app2.use(viteServer.middlewares);
-  app2.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-    try {
-      const clientTemplate = path4.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html"
-      );
-      let template = await fs3.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`
-      );
-      const page = await viteServer.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      viteServer.ssrFixStacktrace(e);
-      next(e);
-    }
-  });
-}
-function serveStatic2(app2) {
-  const possiblePaths = [
-    path4.resolve(import.meta.dirname, "public"),
-    // Built: dist/index.js -> dist/public
-    path4.resolve(import.meta.dirname, "..", "dist", "public"),
-    // From server/ -> ../dist/public
-    path4.resolve(process.cwd(), "dist", "public"),
-    // From project root
-    path4.resolve("/var/task", "dist", "public")
-    // Vercel serverless path
-  ];
-  console.log(`[serveStatic] import.meta.dirname: ${import.meta.dirname}`);
-  console.log(`[serveStatic] process.cwd(): ${process.cwd()}`);
-  let distPath = null;
-  for (const possiblePath of possiblePaths) {
-    console.log(`[serveStatic] Checking: ${possiblePath} - exists: ${fs3.existsSync(possiblePath)}`);
-    if (fs3.existsSync(possiblePath)) {
-      distPath = possiblePath;
-      console.log(`[serveStatic] \u2705 Found static files at: ${distPath}`);
-      break;
-    }
-  }
-  if (!distPath) {
-    console.error(`[serveStatic] \u274C Could not find build directory. Tried:`, possiblePaths);
-    app2.use("*", (_req, res) => {
-      res.status(500).json({
-        error: "Static files not found",
-        message: "The application build files could not be located. Please ensure the build completed successfully.",
-        triedPaths: possiblePaths,
-        dirname: import.meta.dirname,
-        cwd: process.cwd()
-      });
-    });
-    return;
-  }
-  console.log(`[serveStatic] Serving static files from: ${distPath}`);
-  app2.use(express3.static(distPath, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith(".js")) {
-        res.setHeader("Content-Type", "application/javascript");
-      } else if (filePath.endsWith(".css")) {
-        res.setHeader("Content-Type", "text/css");
-      } else if (filePath.endsWith(".html")) {
-        res.setHeader("Content-Type", "text/html");
-      }
-    }
-  }));
-  app2.use("*", (_req, res) => {
-    const indexPath = path4.resolve(distPath, "index.html");
-    console.log(`[serveStatic] Serving index.html from: ${indexPath}`);
-    if (fs3.existsSync(indexPath)) {
-      res.setHeader("Content-Type", "text/html");
-      res.sendFile(indexPath);
-    } else {
-      console.error(`[serveStatic] index.html not found at: ${indexPath}`);
-      res.status(404).json({
-        error: "Not found",
-        message: "The requested resource could not be found.",
-        indexPath
-      });
-    }
-  });
-}
-var viteServer, viteLogger;
-var init_vite = __esm({
-  "server/vite.ts"() {
-    "use strict";
-    viteServer = null;
-    viteLogger = null;
-  }
-});
-
 // server/index.ts
 import "dotenv/config";
-import express4 from "express";
+import express3 from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 
@@ -4280,7 +4095,7 @@ async function registerRoutes(app2) {
 
 // server/index.ts
 init_websocket();
-var app = express4();
+var app = express3();
 var server = createServer(app);
 var isVercel = !!process.env.VERCEL;
 var isServerless = process.env.VERCEL && process.env.VERCEL_ENV && !process.env.VERCEL_NODE_RUNTIME;
@@ -4323,13 +4138,13 @@ app.use((req, res, next) => {
   next();
 });
 app.use(
-  express4.json({
+  express3.json({
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     }
   })
 );
-app.use(express4.urlencoded({ extended: false }));
+app.use(express3.urlencoded({ extended: false }));
 if (isVercel) {
   app.use(async (req, res, next) => {
     try {
@@ -4353,7 +4168,7 @@ if (isVercel) {
 }
 app.use((req, res, next) => {
   const start = Date.now();
-  const path5 = req.path;
+  const path3 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -4362,14 +4177,14 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path5.startsWith("/api")) {
+    if (path3.startsWith("/api")) {
       const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         second: "2-digit",
         hour12: true
       });
-      let logLine = `${req.method} ${path5} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -4451,43 +4266,36 @@ async function initializeApp() {
     res.status(status).json({ message });
   });
   if (isVercel) {
-    console.log("[Server] Vercel detected - using static file server");
-    const { serveStatic: serveStatic3 } = await Promise.resolve().then(() => (init_static(), static_exports));
-    serveStatic3(app);
+    console.log("[Server] Vercel detected - using static file server (NO VITE)");
+    const { serveStatic: serveStatic2 } = await Promise.resolve().then(() => (init_static(), static_exports));
+    serveStatic2(app);
   } else {
     try {
+      if (process.env.VERCEL) {
+        throw new Error("Vite should not be imported on Vercel - this is a safety check");
+      }
       console.log("[Server] Loading vite module for local development...");
-      const { setupVite: setupVite2, serveStatic: serveStatic3, log: log2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
+      const { setupVite, serveStatic: serveStatic2, log } = await import("./vite.js");
       console.log("[Server] Vite module loaded successfully");
-      const fs4 = await import("fs");
-      const path5 = await import("path");
-      const distPath = path5.resolve(import.meta.dirname, "..", "dist", "public");
-      const hasBuild = fs4.existsSync(distPath);
+      const fs3 = await import("fs");
+      const path3 = await import("path");
+      const distPath = path3.resolve(import.meta.dirname, "..", "dist", "public");
+      const hasBuild = fs3.existsSync(distPath);
       const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
-      log2(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
-      log2(`[Server] Build exists: ${hasBuild}`);
-      log2(`[Server] isDevelopment: ${isDevelopment}`);
-      log2(`[Server] Using ${isDevelopment ? "Vite dev server" : "static build"}`);
+      log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
+      log(`[Server] Build exists: ${hasBuild}`);
+      log(`[Server] isDevelopment: ${isDevelopment}`);
+      log(`[Server] Using ${isDevelopment ? "Vite dev server" : "static build"}`);
       if (isDevelopment) {
-        await setupVite2(app, server);
+        await setupVite(app, server);
       } else {
-        serveStatic3(app);
+        serveStatic2(app);
       }
     } catch (error) {
       console.error("[Server] Error loading vite module:", error);
-      app.use("*", (_req, res) => {
-        res.status(500).send(`
-          <!DOCTYPE html>
-          <html>
-            <head><title>Server Error</title></head>
-            <body>
-              <h1>Server Configuration Error</h1>
-              <p>The server failed to initialize properly. Error: ${error instanceof Error ? error.message : "Unknown error"}</p>
-              <pre>${error instanceof Error ? error.stack : ""}</pre>
-            </body>
-          </html>
-        `);
-      });
+      console.log("[Server] Falling back to static file server");
+      const { serveStatic: serveStatic2 } = await Promise.resolve().then(() => (init_static(), static_exports));
+      serveStatic2(app);
     }
   }
   if (!isVercel) {
