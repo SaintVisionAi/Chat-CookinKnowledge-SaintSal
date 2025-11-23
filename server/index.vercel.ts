@@ -111,8 +111,9 @@ async function initializeApp() {
     const message = err.message || "Internal Server Error";
     console.error(`[Server] Error ${status}:`, message);
     console.error(err.stack);
+    // Don't throw after sending response - this crashes serverless functions!
     res.status(status).json({ message });
-    throw err;
+    // Removed: throw err; - This was causing FUNCTION_INVOCATION_FAILED
   });
 
   // Serve static files - NO VITE IMPORTS

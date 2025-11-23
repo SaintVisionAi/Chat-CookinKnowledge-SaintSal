@@ -52,7 +52,7 @@ try {
     platform: 'node',
     target: 'node18',
     format: 'esm',
-    outfile: 'dist/index.vercel.js',
+    outfile: 'api/index.js',
     external: externalPackages,
     // Do NOT use packages: 'external' - this would externalize everything including vite
     sourcemap: false,
@@ -61,7 +61,7 @@ try {
   });
   
   console.log('[Build] ✅ Vercel serverless function built successfully');
-  console.log('[Build] Output: dist/index.vercel.js');
+  console.log('[Build] Output: api/index.js');
 } catch (error) {
   console.error('[Build] ❌ Build failed:', error);
   process.exit(1);
