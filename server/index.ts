@@ -5,7 +5,6 @@ import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { handleWebSocket } from "./websocket";
-import { setupVite, serveStatic, log } from "./vite";
 
 declare module "http" {
   interface IncomingMessage {
@@ -81,6 +80,13 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
+      const formattedTime = new Date().toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+      
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
@@ -90,7 +96,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(`${formattedTime} [express] ${logLine}`);
     }
   });
 
@@ -98,20 +104,6 @@ app.use((req, res, next) => {
 });
 
 async function initializeApp() {
-  // Check if we're in development mode by looking for build directory
-  const fs = await import("fs");
-  const path = await import("path");
-  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
-  const hasBuild = fs.existsSync(distPath);
-  
-  // Use Vite dev server if no build exists OR if explicitly in dev mode
-  const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
-  
-  console.log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
-  console.log(`[Server] Build exists: ${hasBuild}`);
-  console.log(`[Server] isDevelopment: ${isDevelopment}`);
-  console.log(`[Server] Using ${isDevelopment ? 'Vite dev server' : 'static build'}`);
-
   // ✅ Register API routes FIRST (includes setupAuth with simple email/password)
   await registerRoutes(app);
 
@@ -201,19 +193,48 @@ async function initializeApp() {
 
   // Serve static files AFTER API routes
   // This ensures API routes take precedence, and static files are a fallback
-  if (isDevelopment && !isVercel) {
-    // In local development, use Vite dev server
-    await setupVite(app, server);
-  } else {
-    // In production (including Vercel), serve static build
+  // Import vite.ts dynamically to avoid bundling Vite/Rollup on Vercel
+  const { setupVite, serveStatic, log } = await import("./vite");
+  
+  if (isVercel) {
+    // On Vercel, ONLY serve static files - never use Vite
+    console.log('[Server] Vercel detected - serving static files');
     serveStatic(app);
+  } else {
+    // Check if we're in development mode by looking for build directory
+    const fs = await import("fs");
+    const path = await import("path");
+    const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+    const hasBuild = fs.existsSync(distPath);
+    
+    // Use Vite dev server if no build exists OR if explicitly in dev mode
+    const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
+    
+    log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
+    log(`[Server] Build exists: ${hasBuild}`);
+    log(`[Server] isDevelopment: ${isDevelopment}`);
+    log(`[Server] Using ${isDevelopment ? 'Vite dev server' : 'static build'}`);
+    
+    if (isDevelopment) {
+      // In local development, use Vite dev server
+      await setupVite(app, server);
+    } else {
+      // In local production, serve static build
+      serveStatic(app);
+    }
   }
 
   // Only start listening if NOT on Vercel (serverless functions don't need this)
   if (!isVercel) {
     const port = parseInt(process.env.PORT || "5000", 10);
     server.listen(port, "0.0.0.0", () => {
-      log(`serving on port ${port}`);
+      const formattedTime = new Date().toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+      console.log(`${formattedTime} [express] serving on port ${port}`);
     });
   }
 }
