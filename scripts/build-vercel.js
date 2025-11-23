@@ -55,7 +55,7 @@ const nodeBuiltins = [
 
 try {
   await build({
-    entryPoints: ['server/index.vercel.ts'],
+    entryPoints: ['server/index.ts'], // Use full server with WebSocket support
     bundle: true,
     platform: 'node',
     target: 'node18',

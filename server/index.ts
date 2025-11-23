@@ -15,8 +15,12 @@ declare module "http" {
 const app = express();
 const server = createServer(app);
 
-// Check if running on Vercel (serverless)
+// Check if running on Vercel
+// NOTE: Vercel Node.js runtime DOES support WebSockets (not serverless functions)
+// We only disable WebSockets if we detect we're in a true serverless environment
+// Vercel's Node.js runtime with @vercel/node builder supports persistent connections
 const isVercel = !!process.env.VERCEL;
+const isServerless = process.env.VERCEL && process.env.VERCEL_ENV && !process.env.VERCEL_NODE_RUNTIME;
 
 // Track initialization state
 let isInitialized = false;
@@ -120,8 +124,10 @@ async function initializeApp() {
     });
   }
 
-  // Setup WebSocket server (only if not on Vercel - WebSockets don't work in serverless)
-  if (!isVercel) {
+  // Setup WebSocket server
+  // Vercel Node.js runtime DOES support WebSockets (when using @vercel/node builder)
+  // Only disable if we're in a true serverless function environment
+  if (!isServerless) {
     const wss = new WebSocketServer({ server, path: "/ws" });
 
   wss.on("connection", async (ws: any, request: any) => {
@@ -187,13 +193,9 @@ async function initializeApp() {
     }
   });
   } else {
-    // On Vercel, provide a helpful error for WebSocket attempts
-    app.get("/ws", (req, res) => {
-      res.status(503).json({ 
-        error: "WebSocket not available",
-        message: "WebSocket connections are not supported in Vercel serverless functions. Please use HTTP polling or upgrade to a platform that supports persistent connections."
-      });
-    });
+    // True serverless environment - use SSE fallback
+    console.log("[Server] Serverless detected - WebSockets disabled, using SSE fallback");
+    // SSE endpoint is already registered in routes.ts
   }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

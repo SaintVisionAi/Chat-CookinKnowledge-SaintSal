@@ -554,12 +554,13 @@ export default function ChatFixed() {
     setStreamingMessage("");
     setRetryCount(0);
 
-    // Use SSE for serverless (Vercel), fallback to WebSocket for local
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      // Local development - use WebSocket
+    // Try WebSocket first (works on Vercel Node.js runtime), fallback to SSE
+    // WebSocket is preferred for production scalability and real-time streaming
+    try {
       await connectWebSocket(conversationId, messageText, 0);
-    } else {
-      // Production/serverless - use SSE
+    } catch (error) {
+      console.warn("[Chat] WebSocket failed, falling back to SSE:", error);
+      // Fallback to SSE if WebSocket fails (e.g., serverless environment)
       await connectSSE(conversationId, messageText, 0);
     }
   };
