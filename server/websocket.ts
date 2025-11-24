@@ -115,9 +115,14 @@ export function handleWebSocket(ws: AuthenticatedSocket, request: IncomingMessag
   ws.on("message", async (data: Buffer) => {
     try {
       const message = JSON.parse(data.toString());
+      console.log('[WebSocket] Received message type:', message.type, 'from user:', ws.userId);
       
       if (message.type === "chat") {
         await handleChatMessage(ws, message);
+      } else if (message.type === "search") {
+        await handleSearchMessage(ws, message);
+      } else {
+        console.log('[WebSocket] Unknown message type:', message.type);
       }
     } catch (error) {
       console.error("WebSocket message error:", error);
@@ -397,8 +402,8 @@ async function handleChatMessage(ws: AuthenticatedSocket, message: any) {
         return;
       }
 
-      // Map UI model names to OpenAI API model names - always use gpt-4o (best available)
-      const openaiModel = "gpt-4o";
+      // Use gpt-4-turbo-preview as fallback when not using Azure GPT-5
+      const openaiModel = model.includes('gpt-5') ? 'gpt-4-turbo-preview' : 'gpt-4-turbo-preview';
       
       try {
         // OpenAI streaming
@@ -574,7 +579,7 @@ async function handleCodeMode(
       codeFiles,
       ws as any,
       {
-        model: model.includes('claude') ? 'claude-sonnet-4-5-20250929' : 'gpt-4o',
+        model: model.includes('claude') ? 'claude-sonnet-4-5-20250929' : 'gpt-4-turbo-preview',
         temperature: 0.3,
         operation: 'analyze',
       }
@@ -649,7 +654,7 @@ Question: ${userMessage}`;
       }
     } else if (openai) {
       const stream = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4-turbo-preview",
         messages: [{ role: "user", content: analysisPrompt }],
         temperature: 0.5,
         stream: true,
@@ -740,6 +745,99 @@ Provide a comprehensive synthesis with:
     ws.send(JSON.stringify({
       type: "error",
       message: "Failed to complete research",
+    }));
+  }
+}
+
+// WEB SEARCH - Using Perplexity API
+async function handleSearchMessage(ws: AuthenticatedSocket, message: any) {
+  const { query } = message;
+
+  if (!ws.userId) {
+    ws.send(JSON.stringify({
+      type: "error",
+      message: "Unauthorized",
+    }));
+    return;
+  }
+
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    ws.send(JSON.stringify({
+      type: "error",
+      message: "Query is required",
+    }));
+    return;
+  }
+
+  console.log('[Search] Processing query:', query);
+  console.log('[Search] User ID:', ws.userId);
+
+  try {
+    // Format query as Perplexity expects - array of messages
+    const messages = [
+      {
+        role: 'system' as const,
+        content: 'You are a helpful AI assistant that provides accurate, well-researched answers with citations. Be concise but thorough.'
+      },
+      {
+        role: 'user' as const,
+        content: query.trim()
+      }
+    ];
+
+    console.log('[Search] Calling Perplexity API...');
+    
+    // Use Perplexity API for web search
+    const searchResult = await perplexity.search(messages, {
+      model: 'sonar-pro',
+      temperature: 0.2,
+      max_tokens: 2000,
+      searchRecencyFilter: 'month',
+      returnRelatedQuestions: false
+    });
+    
+    console.log('[Search] Perplexity API call completed');
+    
+    if (!searchResult.answer) {
+      throw new Error('No answer from search service');
+    }
+
+    console.log('[Search] Got result, streaming response...', {
+      answerLength: searchResult.answer.length,
+      citationCount: searchResult.citations.length
+    });
+
+    // Send citations first
+    if (searchResult.citations && searchResult.citations.length > 0) {
+      ws.send(JSON.stringify({
+        type: "searchResults",
+        searchResults: {
+          citations: searchResult.citations
+        }
+      }));
+    }
+
+    // Stream the answer back token by token
+    const answer = searchResult.answer;
+    const chunkSize = 5; // Stream 5 characters at a time
+    
+    for (let i = 0; i < answer.length; i += chunkSize) {
+      const chunk = answer.slice(i, i + chunkSize);
+      ws.send(JSON.stringify({
+        type: "chunk",
+        content: chunk,
+      }));
+      // Small delay to simulate streaming
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+
+    ws.send(JSON.stringify({ type: "done" }));
+    
+  } catch (error: any) {
+    console.error('[Search] Error:', error);
+    ws.send(JSON.stringify({
+      type: "error",
+      message: error.message || "Search failed. Please try again.",
     }));
   }
 }

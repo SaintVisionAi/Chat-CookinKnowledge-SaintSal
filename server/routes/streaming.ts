@@ -58,7 +58,7 @@ export async function handleStreamingChat(req: Request, res: Response) {
   }
 
   try {
-    const { conversationId, message, model = 'gpt-4o-mini', mode = 'chat', imageData } = req.body;
+    const { conversationId, message, model = 'claude-sonnet-4-5', mode = 'chat', imageData } = req.body;
 
     // Check message limits
     const limitCheck = await checkMessageLimit(userId);

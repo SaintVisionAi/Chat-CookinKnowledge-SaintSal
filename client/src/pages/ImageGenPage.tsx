@@ -193,17 +193,17 @@ export default function ImageGenPage() {
               Images
             </Button>
           </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled
-            className="shrink-0 opacity-50"
-            data-testid="button-search-mode-soon"
-          >
-            <Search className="h-4 w-4 mr-1.5" />
-            Search
-            <Badge variant="outline" className="ml-1.5 text-xs">Soon</Badge>
-          </Button>
+          <Link href="/search">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 hover-elevate active-elevate-2"
+              data-testid="link-search-mode"
+            >
+              <Search className="h-4 w-4 mr-1.5" />
+              Search
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             size="sm"

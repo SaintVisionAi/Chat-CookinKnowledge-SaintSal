@@ -336,7 +336,6 @@ export default function ChatRedesigned() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="claude-sonnet-4-5">Claude Sonnet 4.5</SelectItem>
-                <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
                 <SelectItem value="gpt-5">GPT-5</SelectItem>
               </SelectContent>
             </Select>

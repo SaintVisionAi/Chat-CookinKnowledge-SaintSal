@@ -179,7 +179,7 @@ export class DeepResearch {
       return response.content[0].type === 'text' ? response.content[0].text : '';
     } else if (this.openai) {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: 500,
@@ -214,7 +214,7 @@ export class DeepResearch {
       response = result.content[0].type === 'text' ? result.content[0].text : '';
     } else if (this.openai) {
       const result = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: 400,
@@ -254,7 +254,7 @@ export class DeepResearch {
       return response.content[0].type === 'text' ? response.content[0].text : '';
     } else if (this.openai) {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: 800,
@@ -292,7 +292,7 @@ export class DeepResearch {
       return response.content[0].type === 'text' ? response.content[0].text : '';
     } else if (this.openai) {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature: temperature * 0.8,
         max_tokens: 600,
@@ -334,7 +334,7 @@ export class DeepResearch {
       return response.content[0].type === 'text' ? response.content[0].text : '';
     } else if (this.openai) {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: 1500,

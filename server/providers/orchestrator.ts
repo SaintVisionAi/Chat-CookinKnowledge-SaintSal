@@ -381,7 +381,7 @@ export class AIOrchestrator {
     }
 
     const stream = await this.openai.chat.completions.create({
-      model: 'gpt-4o', // Always use gpt-4o (best available)
+      model: 'gpt-4-turbo-preview', // Use GPT-4 Turbo as fallback
       messages: messages as any,
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 4096,

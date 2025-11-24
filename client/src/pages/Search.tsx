@@ -94,7 +94,7 @@ export default function Search() {
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log('[Search] Received:', data);
+        console.log('[Search] Received:', data.type, data);
 
         if (data.type === "connected") {
           // Connection confirmed, now send the search query
@@ -104,18 +104,24 @@ export default function Search() {
             ws.send(JSON.stringify({
               type: "search",
               query: userMessage.content,
-              conversationId: null,
             }));
           }
         } else if (data.type === "chunk") {
           fullAnswer += data.content;
           setStreamingMessage(fullAnswer);
+        } else if (data.type === "searchResults") {
+          // Store citations
+          if (data.searchResults?.citations) {
+            citations = data.searchResults.citations;
+            console.log('[Search] Received citations:', citations.length);
+          }
         } else if (data.type === "done") {
+          console.log('[Search] Search complete, total length:', fullAnswer.length);
           // Add assistant message with final answer
           const assistantMessage: SearchMessage = {
             id: Date.now().toString(),
             role: "assistant",
-            content: fullAnswer,
+            content: fullAnswer || "No results found.",
             citations: citations.length > 0 ? citations : undefined,
             timestamp: new Date(),
           };
@@ -124,16 +130,15 @@ export default function Search() {
           setIsSearching(false);
           ws.close();
         } else if (data.type === "error") {
+          console.error('[Search] Error:', data.message);
           toast({
             title: "Search Error",
-            description: data.message,
+            description: data.message || "An error occurred during search",
             variant: "destructive",
           });
           setStreamingMessage("");
           setIsSearching(false);
           ws.close();
-        } else if (data.searchResults?.citations) {
-          citations = data.searchResults.citations;
         }
       };
 
@@ -295,11 +300,11 @@ export default function Search() {
             </div>
           ) : (
             searchHistory.map((history) => (
-              <button
+              <div
                 key={history.id}
                 onClick={() => loadHistoryItem(history)}
                 className={cn(
-                  "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors group relative",
+                  "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors group relative cursor-pointer",
                   currentHistoryId === history.id && "bg-accent"
                 )}
               >
@@ -322,7 +327,7 @@ export default function Search() {
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-              </button>
+              </div>
             ))
           )}
         </div>

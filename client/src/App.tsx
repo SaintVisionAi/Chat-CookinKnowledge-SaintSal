@@ -18,6 +18,7 @@ import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import Chat from "@/pages/Chat";
 import VoiceMode from "@/pages/VoiceMode";
+import Search from "@/pages/Search";
 import ImageGenPage from "@/pages/ImageGenPage";
 import Playground from "@/pages/Playground";
 import Settings from "@/pages/Settings";
@@ -68,6 +69,7 @@ function Router() {
       {/* Full-screen pages without sidebar */}
       <Route path="/chat" component={Chat} />
       <Route path="/voice" component={VoiceMode} />
+      <Route path="/search" component={Search} />
       <Route path="/images" component={ImageGenPage} />
       
       {/* All other routes with sidebar layout */}

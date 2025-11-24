@@ -2749,9 +2749,9 @@ Please analyze the image provided.`;
         }));
         return;
       }
-      let openaiModel = "gpt-4o";
+      let openaiModel = "gpt-4-turbo-preview";
       if (model.includes("gpt-5")) {
-        openaiModel = "gpt-4o";
+        openaiModel = "gpt-4-turbo-preview";
       } else if (model.includes("gpt-4")) {
         openaiModel = "gpt-4-turbo-preview";
       }
@@ -2881,7 +2881,7 @@ async function handleCodeMode(ws3, conversationId, userMessage, model) {
       codeFiles,
       ws3,
       {
-        model: model.includes("claude") ? "claude-sonnet-4-5-20250929" : "gpt-4o",
+        model: model.includes("claude") ? "claude-sonnet-4-5-20250929" : "gpt-4-turbo-preview",
         temperature: 0.3,
         operation: "analyze"
       }
@@ -2939,7 +2939,7 @@ Question: ${userMessage}`;
       }
     } else if (openai) {
       const stream = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4-turbo-preview",
         messages: [{ role: "user", content: analysisPrompt }],
         temperature: 0.5,
         stream: true
@@ -3107,7 +3107,7 @@ async function handleStreamingChat(req, res) {
     return;
   }
   try {
-    const { conversationId, message, model = "gpt-4o-mini", mode = "chat", imageData } = req.body;
+    const { conversationId, message, model = "claude-sonnet-4-5", mode = "chat", imageData } = req.body;
     const limitCheck = await checkMessageLimit(userId);
     if (!limitCheck.allowed) {
       sendSSE(res, "error", {

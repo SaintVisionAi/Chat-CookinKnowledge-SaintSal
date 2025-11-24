@@ -74,7 +74,7 @@ export default function ChatFixed() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
-  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
+  const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-5");
   const [retryCount, setRetryCount] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [selectedMode, setSelectedMode] = useState<ChatMode>("chat");
@@ -113,10 +113,13 @@ export default function ChatFixed() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: conversations } = useQuery<Conversation[]>({
+  const { data: allConversations } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations"],
     enabled: isAuthenticated,
   });
+
+  // Filter out voice conversations - only show chat/search/research/code modes
+  const conversations = allConversations?.filter(c => c.mode !== "voice") || [];
 
   const { data: messages } = useQuery<Message[]>({
     queryKey: ["/api/conversations", selectedConversationId, "messages"],
@@ -1041,17 +1044,17 @@ export default function ChatFixed() {
                 Images
               </Button>
             </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled
-              className="shrink-0 opacity-50"
-              data-testid="button-search-mode-soon"
-            >
-              <Search className="h-4 w-4 mr-1.5" />
-              Search
-              <Badge variant="outline" className="ml-1.5 text-xs">Soon</Badge>
-            </Button>
+            <Link href="/search">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 hover-elevate active-elevate-2"
+                data-testid="link-search-mode"
+              >
+                <Search className="h-4 w-4 mr-1.5" />
+                Search
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="sm"
