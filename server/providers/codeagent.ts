@@ -473,7 +473,7 @@ ${files.map(f => `  - ${f.path}`).join('\n')}`;
       return response.content[0].type === 'text' ? response.content[0].text : '';
     } else if (this.openai) {
       const response = await this.openai.chat.completions.create({
-        model: model.includes('gpt') ? model : 'gpt-4-turbo-preview',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: 4000,

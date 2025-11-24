@@ -381,7 +381,7 @@ export class AIOrchestrator {
     }
 
     const stream = await this.openai.chat.completions.create({
-      model: options.model === 'gpt-5' ? 'gpt-4-turbo-preview' : options.model,
+      model: 'gpt-4o', // Always use gpt-4o (best available)
       messages: messages as any,
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 4096,
