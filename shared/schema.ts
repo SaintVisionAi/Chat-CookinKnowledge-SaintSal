@@ -42,7 +42,6 @@ export const users = pgTable("users", {
   phone: varchar("phone"), // Phone number
   profileImageUrl: varchar("profile_image_url"),
   role: userRoleEnum("role").default('viewer').notNull(),
-  organizationId: varchar("organization_id"), // For enterprise team members
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionStatus: varchar("subscription_status").default('free'),
