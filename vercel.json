@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm ci && npm run vercel-build && npm prune --production",
+  "buildCommand": "npm run vercel-build && rm -rf node_modules/vite node_modules/@vitejs node_modules/rollup node_modules/@rollup node_modules/esbuild",
   "outputDirectory": "dist/public",
   "functions": {
     "api/index.js": {
