@@ -102,9 +102,16 @@ export async function setupSimpleAuth(app: Express) {
       });
 
       res.json({ success: true, user: (req.session as any).user });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration error:", error);
-      res.status(500).json({ error: "Registration failed" });
+      console.error("Registration error details:", {
+        message: error.message,
+        code: error.code,
+        constraint: error.constraint,
+        detail: error.detail
+      });
+      const errorMessage = error.message || "Registration failed";
+      res.status(500).json({ error: errorMessage });
     }
   });
 

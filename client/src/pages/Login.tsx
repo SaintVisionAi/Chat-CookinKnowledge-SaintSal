@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -97,6 +97,12 @@ export default function Login() {
               <LogIn className="mr-2 h-5 w-5" />
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
+            <p className="text-sm text-muted-foreground text-center mt-4">
+              Don't have an account?{" "}
+              <Link href="/register" className="text-primary hover:underline font-medium">
+                Create account
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>
