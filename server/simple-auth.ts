@@ -76,12 +76,16 @@ export async function setupSimpleAuth(app: Express) {
       // Create user with upsertUser (will insert new user)
       const user = await storage.upsertUser({
         id: crypto.randomUUID(), // Generate new user ID
-        email,
-        firstName,
-        lastName,
-        phone,
+        email: email.toLowerCase().trim(),
+        firstName: firstName || "User",
+        lastName: lastName || "",
+        phone: phone.trim(),
         passwordHash,
         role: "viewer", // Default role
+        subscriptionStatus: "free",
+        subscriptionTier: "free",
+        messageCount: 0,
+        messageLimit: 100,
       });
 
       // Set session
