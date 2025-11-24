@@ -3,8 +3,8 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import { registerRoutes } from "./routes";
-import { handleWebSocket } from "./websocket";
+import { registerRoutes } from "./routes.js";
+import { handleWebSocket } from "./websocket.js";
 
 declare module "http" {
   interface IncomingMessage {
@@ -15,8 +15,24 @@ declare module "http" {
 const app = express();
 const server = createServer(app);
 
-// Check if running on Vercel (serverless)
-const isVercel = !!process.env.VERCEL;
+// Check if running on Vercel
+// NOTE: Vercel Node.js runtime DOES support WebSockets (not serverless functions)
+// We only disable WebSockets if we detect we're in a true serverless environment
+// Vercel's Node.js runtime with @vercel/node builder supports persistent connections
+const isVercel = !!process.env.VERCEL || !!process.env.VERCEL_ENV;
+const isServerless = process.env.VERCEL && process.env.VERCEL_ENV && !process.env.VERCEL_NODE_RUNTIME;
+
+// CRITICAL: Ensure we NEVER import Vite/Rollup on Vercel
+// This prevents the @rollup/rollup-linux-x64-gnu error
+if (isVercel && (process.env.VERCEL || process.env.VERCEL_ENV)) {
+  // Override any potential vite imports
+  Object.defineProperty(global, 'vite', {
+    get: () => {
+      throw new Error('Vite is not available on Vercel - use static file serving instead');
+    },
+    configurable: false,
+  });
+}
 
 // Track initialization state
 let isInitialized = false;
@@ -25,12 +41,43 @@ const initPromise = (async () => {
   try {
     await initializeApp();
     isInitialized = true;
+    console.log("[Server] ✅ Initialization complete");
   } catch (error) {
     initError = error as Error;
-    console.error("[Server] Initialization failed:", error);
-    throw error;
+    console.error("[Server] ❌ Initialization failed:", error);
+    console.error("[Server] Error details:", {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+    });
+    // Don't throw on Vercel - let middleware handle gracefully
+    if (!isVercel) {
+      throw error;
+    }
   }
 })();
+
+// CORS configuration for split architecture (frontend on Vercel, backend on Render/Railway)
+// Allow frontend origin and localhost for development
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'https://chat-cookin-knowledge-saint-*.vercel.app',
+].filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.filter((allowed): allowed is string => !!allowed).some(allowed => origin.includes(allowed.replace('*', ''))) || allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Middleware setup (synchronous, outside async function)
 app.use(
@@ -104,11 +151,26 @@ app.use((req, res, next) => {
 });
 
 async function initializeApp() {
-  // ✅ Register API routes FIRST (includes setupAuth with simple email/password)
-  await registerRoutes(app);
+  try {
+    // ✅ Register API routes FIRST (includes setupAuth with simple email/password)
+    await registerRoutes(app);
+  } catch (error) {
+    console.error("[initializeApp] Error registering routes:", error);
+    // Don't throw - let the app continue with basic functionality
+    // Add a basic health check route
+    app.get("/api/health", (req, res) => {
+      res.json({ 
+        status: "degraded", 
+        message: "Some features may be unavailable",
+        error: (error as Error).message 
+      });
+    });
+  }
 
-  // Setup WebSocket server (only if not on Vercel - WebSockets don't work in serverless)
-  if (!isVercel) {
+  // Setup WebSocket server
+  // Vercel Node.js runtime DOES support WebSockets (when using @vercel/node builder)
+  // Only disable if we're in a true serverless function environment
+  if (!isServerless) {
     const wss = new WebSocketServer({ server, path: "/ws" });
 
   wss.on("connection", async (ws: any, request: any) => {
@@ -174,33 +236,41 @@ async function initializeApp() {
     }
   });
   } else {
-    // On Vercel, provide a helpful error for WebSocket attempts
-    app.get("/ws", (req, res) => {
-      res.status(503).json({ 
-        error: "WebSocket not available",
-        message: "WebSocket connections are not supported in Vercel serverless functions. Please use HTTP polling or upgrade to a platform that supports persistent connections."
-      });
-    });
+    // True serverless environment - use SSE fallback
+    console.log("[Server] Serverless detected - WebSockets disabled, using SSE fallback");
+    // SSE endpoint is already registered in routes.ts
   }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Don't throw after sending response - this crashes serverless functions!
+    // Just log the error and send response
+    console.error("[Error Handler]", err);
     res.status(status).json({ message });
-    throw err;
+    // Removed: throw err; - This was causing FUNCTION_INVOCATION_FAILED
   });
 
   // Serve static files AFTER API routes
   // This ensures API routes take precedence, and static files are a fallback
   if (isVercel) {
-    // On Vercel, use the static-only module (no Vite/Rollup dependencies)
-    console.log('[Server] Vercel detected - using static file server');
+    // On Vercel, ALWAYS use the static-only module (no Vite/Rollup dependencies)
+    // This prevents Rollup from being bundled or required at runtime
+    console.log('[Server] Vercel detected - using static file server (NO VITE)');
     const { serveStatic } = await import("./static.js");
     serveStatic(app);
   } else {
-    // Local development or production: use vite.ts
+    // Local development ONLY: use vite.ts
+    // This code path should NEVER execute on Vercel
     try {
+      // Triple-check we're not on Vercel before importing vite
+      if (process.env.VERCEL || process.env.VERCEL_ENV) {
+        console.error('[Server] CRITICAL: Attempted to import vite on Vercel - using static fallback');
+        const { serveStatic } = await import("./static.js");
+        serveStatic(app);
+        return; // Exit early, don't try to import vite
+      }
       console.log('[Server] Loading vite module for local development...');
       const { setupVite, serveStatic, log } = await import("./vite.js");
       console.log('[Server] Vite module loaded successfully');
@@ -228,20 +298,10 @@ async function initializeApp() {
       }
     } catch (error) {
       console.error('[Server] Error loading vite module:', error);
-      // Fallback: serve a basic error page
-      app.use("*", (_req, res) => {
-        res.status(500).send(`
-          <!DOCTYPE html>
-          <html>
-            <head><title>Server Error</title></head>
-            <body>
-              <h1>Server Configuration Error</h1>
-              <p>The server failed to initialize properly. Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
-              <pre>${error instanceof Error ? error.stack : ''}</pre>
-            </body>
-          </html>
-        `);
-      });
+      // Fallback to static serving if vite fails (should never happen on Vercel)
+      console.log('[Server] Falling back to static file server');
+      const { serveStatic } = await import("./static.js");
+      serveStatic(app);
     }
   }
 
@@ -264,12 +324,13 @@ async function initializeApp() {
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
   console.error("[Server] Error stack:", (error as Error).stack);
+  // On Vercel, don't exit - let the middleware handle the error gracefully
+  // This prevents FUNCTION_INVOCATION_FAILED errors
   if (!isVercel) {
     process.exit(1);
   }
-  // On Vercel, don't exit - let the middleware handle the error
 });
 
 // Export the app for Vercel serverless functions
 // Vercel's @vercel/node will automatically handle Express apps
-export default app;
+export { app as default };

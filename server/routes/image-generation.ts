@@ -1,7 +1,7 @@
 // Image generation routes - DALL-E and Gemini
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { isAuthenticated } from '../simple-auth';
+import { isAuthenticated } from '../simple-auth.js';
 
 const router = Router();
 
@@ -130,7 +130,7 @@ router.post('/gemini', isAuthenticated, async (req: any, res: Response) => {
     }
 
     // Import Gemini provider
-    const { gemini } = await import('../providers/gemini');
+    const { gemini } = await import('../providers/gemini.js');
     
     if (!gemini.isAvailable()) {
       return res.status(503).json({ error: 'Gemini service not available. Please configure GEMINI_API_KEY.' });

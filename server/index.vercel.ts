@@ -25,7 +25,9 @@ const initPromise = (async () => {
   } catch (error) {
     initError = error as Error;
     console.error("[Server] Initialization failed:", error);
-    throw error;
+    console.error("[Server] Error stack:", (error as Error).stack);
+    // Don't throw - let middleware handle the error gracefully
+    // This prevents the serverless function from crashing
   }
 })();
 
@@ -101,9 +103,22 @@ app.use((req, res, next) => {
 async function initializeApp() {
   console.log("[Server] Initializing Vercel serverless function...");
   
-  // Register API routes
-  await registerRoutes(app);
-  console.log("[Server] ✅ API routes registered");
+  try {
+    // Register API routes
+    await registerRoutes(app);
+    console.log("[Server] ✅ API routes registered");
+  } catch (error) {
+    console.error("[Server] Error registering routes:", error);
+    // Don't throw - add a basic health check route instead
+    app.get("/api/health", (req, res) => {
+      res.json({ 
+        status: "degraded", 
+        message: "Some features may be unavailable",
+        error: (error as Error).message 
+      });
+    });
+    throw error; // Still throw to mark initialization as failed
+  }
 
   // Global error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -111,8 +126,9 @@ async function initializeApp() {
     const message = err.message || "Internal Server Error";
     console.error(`[Server] Error ${status}:`, message);
     console.error(err.stack);
+    // Don't throw after sending response - this crashes serverless functions!
     res.status(status).json({ message });
-    throw err;
+    // Removed: throw err; - This was causing FUNCTION_INVOCATION_FAILED
   });
 
   // Serve static files - NO VITE IMPORTS
@@ -123,10 +139,24 @@ async function initializeApp() {
   console.log("[Server] ✅ Initialization complete");
 }
 
-// Start initialization
+// Start initialization - catch any unhandled errors
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
   console.error("[Server] Error stack:", (error as Error).stack);
+  // Don't let unhandled promise rejections crash the function
+  // The middleware will handle returning errors to clients
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't crash - let the middleware handle it
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('[Server] Uncaught Exception:', error);
+  // Don't crash - return error response instead
 });
 
 // Export the app for Vercel serverless functions
