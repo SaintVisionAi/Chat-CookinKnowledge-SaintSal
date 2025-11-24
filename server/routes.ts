@@ -69,18 +69,31 @@ export async function registerRoutes(app: Express) {
   app.post("/api/conversations", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.session.userId;
+      console.log('[Create Conversation] Request body:', req.body);
+      console.log('[Create Conversation] userId:', userId);
+      
       const data = insertConversationSchema.parse({
         ...req.body,
         userId,
       });
+      console.log('[Create Conversation] Parsed data:', data);
+      
       const conversation = await storage.createConversation(data);
+      console.log('[Create Conversation] Created:', conversation.id);
       res.json(conversation);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
+        console.error('[Create Conversation] Validation error:', error.errors);
         return res.status(400).json({ error: error.errors });
       }
-      console.error("Error creating conversation:", error);
-      res.status(500).send("Failed to create conversation");
+      console.error("[Create Conversation] Error:", error);
+      console.error("[Create Conversation] Error details:", {
+        message: error.message,
+        code: error.code,
+        constraint: error.constraint,
+        detail: error.detail
+      });
+      res.status(500).json({ error: error.message || "Failed to create conversation" });
     }
   });
 

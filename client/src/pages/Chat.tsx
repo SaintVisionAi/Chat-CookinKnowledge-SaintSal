@@ -154,6 +154,7 @@ export default function ChatFixed() {
       const response = await apiRequest("POST", "/api/conversations", {
         title,
         model: selectedModel,
+        mode: selectedMode,
       });
       return await response.json();
     },
