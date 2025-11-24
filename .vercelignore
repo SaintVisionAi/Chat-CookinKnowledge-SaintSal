@@ -1,0 +1,24 @@
+# Exclude development dependencies from serverless function
+node_modules/vite
+node_modules/@vitejs
+node_modules/rollup
+node_modules/@rollup
+node_modules/esbuild
+node_modules/typescript
+node_modules/drizzle-kit
+node_modules/@replit
+node_modules/vite-plugin-checker
+node_modules/@tailwindcss/vite
+node_modules/postcss
+node_modules/tailwindcss
+node_modules/autoprefixer
+
+# Exclude source files
+client/
+server/
+scripts/
+shared/
+
+# Keep only the built files
+!api/
+!dist/
