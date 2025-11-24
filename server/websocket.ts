@@ -397,13 +397,8 @@ async function handleChatMessage(ws: AuthenticatedSocket, message: any) {
         return;
       }
 
-      // Map UI model names to OpenAI API model names
-      let openaiModel = "gpt-4o"; // Default to GPT-4o (best available as GPT-5 proxy)
-      if (model.includes("gpt-5")) {
-        openaiModel = "gpt-4o"; // Use GPT-4o as GPT-5 (OpenAI's best model)
-      } else if (model.includes("gpt-4")) {
-        openaiModel = "gpt-4-turbo-preview";
-      }
+      // Map UI model names to OpenAI API model names - always use gpt-4o (best available)
+      const openaiModel = "gpt-4o";
       
       try {
         // OpenAI streaming
