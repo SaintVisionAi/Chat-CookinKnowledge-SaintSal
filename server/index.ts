@@ -43,7 +43,7 @@ const initPromise = (async () => {
     isInitialized = true;
     console.log("[Server] ✅ Initialization complete");
   } catch (error) {
-    initError = error as Error;
+    initError = error as Error; 
     console.error("[Server] ❌ Initialization failed:", error);
     console.error("[Server] Error details:", {
       message: (error as Error).message,
@@ -52,6 +52,7 @@ const initPromise = (async () => {
     // Don't throw on Vercel - let middleware handle gracefully
     if (!isVercel) {
       throw error;
+      
     }
   }
 })();
