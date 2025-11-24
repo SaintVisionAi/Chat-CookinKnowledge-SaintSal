@@ -572,10 +572,8 @@ async function setupSimpleAuth(app2) {
       };
       await new Promise((resolve, reject) => {
         req.session.save((err) => {
-          if (err)
-            reject(err);
-          else
-            resolve(true);
+          if (err) reject(err);
+          else resolve(true);
         });
       });
       res.json({ success: true, user: req.session.user });
@@ -615,10 +613,8 @@ async function setupSimpleAuth(app2) {
       };
       await new Promise((resolve, reject) => {
         req.session.save((err) => {
-          if (err)
-            reject(err);
-          else
-            resolve(true);
+          if (err) reject(err);
+          else resolve(true);
         });
       });
       res.json({ success: true, user: req.session.user });
@@ -890,22 +886,18 @@ var init_grok = __esm({
           const decoder = new TextDecoder();
           let fullResponse = "";
           let buffer = "";
-          if (!reader)
-            throw new Error("No response body");
+          if (!reader) throw new Error("No response body");
           while (true) {
             const { done, value } = await reader.read();
-            if (done)
-              break;
+            if (done) break;
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
             for (const line of lines) {
               const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: "))
-                continue;
+              if (!trimmed || !trimmed.startsWith("data: ")) continue;
               const data = trimmed.slice(6);
-              if (data === "[DONE]")
-                break;
+              if (data === "[DONE]") break;
               try {
                 const parsed = JSON.parse(data);
                 const content = parsed.choices?.[0]?.delta?.content;
@@ -1530,10 +1522,8 @@ ${answer}
         const hasValidation = context.steps.some((s) => s.type === "synthesis");
         const hasSynthesis = context.steps.some((s) => s.type === "conclusion");
         let confidence = baseConfidence;
-        if (hasValidation)
-          confidence += 10;
-        if (hasSynthesis)
-          confidence += 10;
+        if (hasValidation) confidence += 10;
+        if (hasSynthesis) confidence += 10;
         return Math.min(confidence, 95);
       }
       formatResearchResponse(context, synthesis) {
@@ -1630,8 +1620,7 @@ var init_codeagent = __esm({
         }
       }
       determineOperation(request, hint) {
-        if (hint)
-          return hint;
+        if (hint) return hint;
         const lowerRequest = request.toLowerCase();
         if (lowerRequest.includes("analyze") || lowerRequest.includes("review")) {
           return "analyze";
@@ -1816,8 +1805,7 @@ Provide comprehensive assistance including:
        * Build context string from files
        */
       buildCodeContext(files) {
-        if (files.length === 0)
-          return "No files provided";
+        if (files.length === 0) return "No files provided";
         return files.map((file) => `
 File: ${file.path}
 Language: ${file.language || this.detectLanguage(file.path)}
@@ -1830,8 +1818,7 @@ ${file.content}
        * Summarize context for better AI understanding
        */
       summarizeContext(files) {
-        if (files.length === 0)
-          return "New project - no existing files";
+        if (files.length === 0) return "New project - no existing files";
         const languages = new Set(files.map((f) => this.detectLanguage(f.path)));
         const totalLines = files.reduce((sum, f) => sum + (f.content.split("\n").length || 0), 0);
         return `
@@ -2501,11 +2488,9 @@ import Anthropic4 from "@anthropic-ai/sdk";
 import OpenAI4 from "openai";
 async function updateConversationMemory(conversationId, messages2, lastResponse) {
   try {
-    if (messages2.length % 5 !== 0)
-      return;
+    if (messages2.length % 5 !== 0) return;
     const conversation = await storage.getConversationById(conversationId);
-    if (!conversation)
-      return;
+    if (!conversation) return;
     const recentMessages = messages2.slice(-10);
     const content = recentMessages.map((m) => m.content).join(" ");
     const words = content.toLowerCase().split(/\s+/);
@@ -3946,16 +3931,11 @@ async function registerRoutes(app2) {
       const targetUserId = req.params.id;
       const { email, password, firstName, lastName, phone, role } = req.body;
       const updates = {};
-      if (email)
-        updates.email = email;
-      if (firstName !== void 0)
-        updates.firstName = firstName;
-      if (lastName !== void 0)
-        updates.lastName = lastName;
-      if (phone !== void 0)
-        updates.phone = phone;
-      if (role)
-        updates.role = role;
+      if (email) updates.email = email;
+      if (firstName !== void 0) updates.firstName = firstName;
+      if (lastName !== void 0) updates.lastName = lastName;
+      if (phone !== void 0) updates.phone = phone;
+      if (role) updates.role = role;
       if (password) {
         const bcrypt2 = await import("bcryptjs");
         updates.passwordHash = await bcrypt2.hash(password, 10);
@@ -4204,6 +4184,19 @@ var initPromise = (async () => {
     console.error("[Server] Error stack:", error.stack);
   }
 })();
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (origin.includes("vercel.app") || origin === "http://localhost:5173" || origin === "http://localhost:5000")) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 app.use(
   express3.json({
     verify: (req, _res, buf) => {
