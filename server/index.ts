@@ -260,17 +260,15 @@ async function initializeApp() {
     console.log('[Server] Vercel detected - using static file server (NO VITE)');
     const { serveStatic } = await import("./static.js");
     serveStatic(app);
+  } else if (process.env.VERCEL || process.env.VERCEL_ENV) {
+    // Double-check: If somehow isVercel is false but env vars are set
+    console.log('[Server] Vercel environment detected via env vars - using static server');
+    const { serveStatic } = await import("./static.js");
+    serveStatic(app);
   } else {
     // Local development ONLY: use vite.ts
     // This code path should NEVER execute on Vercel
     try {
-      // Triple-check we're not on Vercel before importing vite
-      if (process.env.VERCEL || process.env.VERCEL_ENV) {
-        console.error('[Server] CRITICAL: Attempted to import vite on Vercel - using static fallback');
-        const { serveStatic } = await import("./static.js");
-        serveStatic(app);
-        return; // Exit early, don't try to import vite
-      }
       console.log('[Server] Loading vite module for local development...');
       const { setupVite, serveStatic, log } = await import("./vite.js");
       console.log('[Server] Vite module loaded successfully');
