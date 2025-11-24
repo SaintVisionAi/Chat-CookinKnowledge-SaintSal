@@ -84,8 +84,6 @@ var init_schema = __esm({
       // Phone number
       profileImageUrl: varchar("profile_image_url"),
       role: userRoleEnum("role").default("viewer").notNull(),
-      organizationId: varchar("organization_id"),
-      // For enterprise team members
       stripeCustomerId: varchar("stripe_customer_id"),
       stripeSubscriptionId: varchar("stripe_subscription_id"),
       subscriptionStatus: varchar("subscription_status").default("free"),
@@ -502,13 +500,6 @@ var init_storage = __esm({
 });
 
 // server/simple-auth.ts
-var simple_auth_exports = {};
-__export(simple_auth_exports, {
-  getSession: () => getSession,
-  isAuthenticated: () => isAuthenticated,
-  sessionStore: () => sessionStore,
-  setupSimpleAuth: () => setupSimpleAuth
-});
 import crypto2 from "crypto";
 import bcrypt from "bcryptjs";
 import express from "express";
@@ -559,13 +550,17 @@ async function setupSimpleAuth(app2) {
       const user = await storage.upsertUser({
         id: crypto2.randomUUID(),
         // Generate new user ID
-        email,
-        firstName,
-        lastName,
-        phone,
+        email: email.toLowerCase().trim(),
+        firstName: firstName || "User",
+        lastName: lastName || "",
+        phone: phone.trim(),
         passwordHash,
-        role: "viewer"
+        role: "viewer",
         // Default role
+        subscriptionStatus: "free",
+        subscriptionTier: "free",
+        messageCount: 0,
+        messageLimit: 100
       });
       req.session.userId = user.id;
       req.session.user = {
@@ -577,14 +572,23 @@ async function setupSimpleAuth(app2) {
       };
       await new Promise((resolve, reject) => {
         req.session.save((err) => {
-          if (err) reject(err);
-          else resolve(true);
+          if (err)
+            reject(err);
+          else
+            resolve(true);
         });
       });
       res.json({ success: true, user: req.session.user });
     } catch (error) {
       console.error("Registration error:", error);
-      res.status(500).json({ error: "Registration failed" });
+      console.error("Registration error details:", {
+        message: error.message,
+        code: error.code,
+        constraint: error.constraint,
+        detail: error.detail
+      });
+      const errorMessage = error.message || "Registration failed";
+      res.status(500).json({ error: errorMessage });
     }
   });
   app2.post("/api/auth/login", async (req, res) => {
@@ -611,8 +615,10 @@ async function setupSimpleAuth(app2) {
       };
       await new Promise((resolve, reject) => {
         req.session.save((err) => {
-          if (err) reject(err);
-          else resolve(true);
+          if (err)
+            reject(err);
+          else
+            resolve(true);
         });
       });
       res.json({ success: true, user: req.session.user });
@@ -884,18 +890,22 @@ var init_grok = __esm({
           const decoder = new TextDecoder();
           let fullResponse = "";
           let buffer = "";
-          if (!reader) throw new Error("No response body");
+          if (!reader)
+            throw new Error("No response body");
           while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done)
+              break;
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
             for (const line of lines) {
               const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+              if (!trimmed || !trimmed.startsWith("data: "))
+                continue;
               const data = trimmed.slice(6);
-              if (data === "[DONE]") break;
+              if (data === "[DONE]")
+                break;
               try {
                 const parsed = JSON.parse(data);
                 const content = parsed.choices?.[0]?.delta?.content;
@@ -1387,7 +1397,7 @@ ${answer}
           return response.content[0].type === "text" ? response.content[0].text : "";
         } else if (this.openai) {
           const response = await this.openai.chat.completions.create({
-            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            model: "gpt-4-turbo-preview",
             messages: [{ role: "user", content: prompt }],
             temperature,
             max_tokens: 500
@@ -1413,7 +1423,7 @@ ${answer}
           response = result.content[0].type === "text" ? result.content[0].text : "";
         } else if (this.openai) {
           const result = await this.openai.chat.completions.create({
-            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            model: "gpt-4-turbo-preview",
             messages: [{ role: "user", content: prompt }],
             temperature,
             max_tokens: 400
@@ -1442,7 +1452,7 @@ ${answer}
           return response.content[0].type === "text" ? response.content[0].text : "";
         } else if (this.openai) {
           const response = await this.openai.chat.completions.create({
-            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            model: "gpt-4-turbo-preview",
             messages: [{ role: "user", content: prompt }],
             temperature,
             max_tokens: 800
@@ -1473,7 +1483,7 @@ ${answer}
           return response.content[0].type === "text" ? response.content[0].text : "";
         } else if (this.openai) {
           const response = await this.openai.chat.completions.create({
-            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            model: "gpt-4-turbo-preview",
             messages: [{ role: "user", content: prompt }],
             temperature: temperature * 0.8,
             max_tokens: 600
@@ -1506,7 +1516,7 @@ ${answer}
           return response.content[0].type === "text" ? response.content[0].text : "";
         } else if (this.openai) {
           const response = await this.openai.chat.completions.create({
-            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            model: "gpt-4-turbo-preview",
             messages: [{ role: "user", content: prompt }],
             temperature,
             max_tokens: 1500
@@ -1520,8 +1530,10 @@ ${answer}
         const hasValidation = context.steps.some((s) => s.type === "synthesis");
         const hasSynthesis = context.steps.some((s) => s.type === "conclusion");
         let confidence = baseConfidence;
-        if (hasValidation) confidence += 10;
-        if (hasSynthesis) confidence += 10;
+        if (hasValidation)
+          confidence += 10;
+        if (hasSynthesis)
+          confidence += 10;
         return Math.min(confidence, 95);
       }
       formatResearchResponse(context, synthesis) {
@@ -1618,7 +1630,8 @@ var init_codeagent = __esm({
         }
       }
       determineOperation(request, hint) {
-        if (hint) return hint;
+        if (hint)
+          return hint;
         const lowerRequest = request.toLowerCase();
         if (lowerRequest.includes("analyze") || lowerRequest.includes("review")) {
           return "analyze";
@@ -1803,7 +1816,8 @@ Provide comprehensive assistance including:
        * Build context string from files
        */
       buildCodeContext(files) {
-        if (files.length === 0) return "No files provided";
+        if (files.length === 0)
+          return "No files provided";
         return files.map((file) => `
 File: ${file.path}
 Language: ${file.language || this.detectLanguage(file.path)}
@@ -1816,7 +1830,8 @@ ${file.content}
        * Summarize context for better AI understanding
        */
       summarizeContext(files) {
-        if (files.length === 0) return "New project - no existing files";
+        if (files.length === 0)
+          return "New project - no existing files";
         const languages = new Set(files.map((f) => this.detectLanguage(f.path)));
         const totalLines = files.reduce((sum, f) => sum + (f.content.split("\n").length || 0), 0);
         return `
@@ -1916,7 +1931,7 @@ ${files.map((f) => `  - ${f.path}`).join("\n")}`;
           return response.content[0].type === "text" ? response.content[0].text : "";
         } else if (this.openai) {
           const response = await this.openai.chat.completions.create({
-            model: model.includes("gpt") ? model : "gpt-4-turbo-preview",
+            model: "gpt-4-turbo-preview",
             messages: [{ role: "user", content: prompt }],
             temperature,
             max_tokens: 4e3
@@ -2210,7 +2225,8 @@ var init_orchestrator = __esm({
           throw new Error("OpenAI API key not configured");
         }
         const stream = await this.openai.chat.completions.create({
-          model: options.model === "gpt-5" ? "gpt-4-turbo-preview" : options.model,
+          model: "gpt-4-turbo-preview",
+          // Use GPT-4 Turbo as fallback
           messages: messages2,
           temperature: options.temperature || 0.7,
           max_tokens: options.maxTokens || 4096,
@@ -2485,9 +2501,11 @@ import Anthropic4 from "@anthropic-ai/sdk";
 import OpenAI4 from "openai";
 async function updateConversationMemory(conversationId, messages2, lastResponse) {
   try {
-    if (messages2.length % 5 !== 0) return;
+    if (messages2.length % 5 !== 0)
+      return;
     const conversation = await storage.getConversationById(conversationId);
-    if (!conversation) return;
+    if (!conversation)
+      return;
     const recentMessages = messages2.slice(-10);
     const content = recentMessages.map((m) => m.content).join(" ");
     const words = content.toLowerCase().split(/\s+/);
@@ -2528,8 +2546,13 @@ function handleWebSocket(ws3, request, userId, email) {
   ws3.on("message", async (data) => {
     try {
       const message = JSON.parse(data.toString());
+      console.log("[WebSocket] Received message type:", message.type, "from user:", ws3.userId);
       if (message.type === "chat") {
         await handleChatMessage(ws3, message);
+      } else if (message.type === "search") {
+        await handleSearchMessage(ws3, message);
+      } else {
+        console.log("[WebSocket] Unknown message type:", message.type);
       }
     } catch (error) {
       console.error("WebSocket message error:", error);
@@ -2749,12 +2772,7 @@ Please analyze the image provided.`;
         }));
         return;
       }
-      let openaiModel = "gpt-4-turbo-preview";
-      if (model.includes("gpt-5")) {
-        openaiModel = "gpt-4-turbo-preview";
-      } else if (model.includes("gpt-4")) {
-        openaiModel = "gpt-4-turbo-preview";
-      }
+      const openaiModel = model.includes("gpt-5") ? "gpt-4-turbo-preview" : "gpt-4-turbo-preview";
       try {
         const stream = await openai.chat.completions.create({
           model: openaiModel,
@@ -3016,6 +3034,78 @@ Provide a comprehensive synthesis with:
     ws3.send(JSON.stringify({
       type: "error",
       message: "Failed to complete research"
+    }));
+  }
+}
+async function handleSearchMessage(ws3, message) {
+  const { query } = message;
+  if (!ws3.userId) {
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: "Unauthorized"
+    }));
+    return;
+  }
+  if (!query || typeof query !== "string" || !query.trim()) {
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: "Query is required"
+    }));
+    return;
+  }
+  console.log("[Search] Processing query:", query);
+  console.log("[Search] User ID:", ws3.userId);
+  try {
+    const messages2 = [
+      {
+        role: "system",
+        content: "You are a helpful AI assistant that provides accurate, well-researched answers with citations. Be concise but thorough."
+      },
+      {
+        role: "user",
+        content: query.trim()
+      }
+    ];
+    console.log("[Search] Calling Perplexity API...");
+    const searchResult = await perplexity.search(messages2, {
+      model: "sonar-pro",
+      temperature: 0.2,
+      max_tokens: 2e3,
+      searchRecencyFilter: "month",
+      returnRelatedQuestions: false
+    });
+    console.log("[Search] Perplexity API call completed");
+    if (!searchResult.answer) {
+      throw new Error("No answer from search service");
+    }
+    console.log("[Search] Got result, streaming response...", {
+      answerLength: searchResult.answer.length,
+      citationCount: searchResult.citations.length
+    });
+    if (searchResult.citations && searchResult.citations.length > 0) {
+      ws3.send(JSON.stringify({
+        type: "searchResults",
+        searchResults: {
+          citations: searchResult.citations
+        }
+      }));
+    }
+    const answer = searchResult.answer;
+    const chunkSize = 5;
+    for (let i = 0; i < answer.length; i += chunkSize) {
+      const chunk = answer.slice(i, i + chunkSize);
+      ws3.send(JSON.stringify({
+        type: "chunk",
+        content: chunk
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    ws3.send(JSON.stringify({ type: "done" }));
+  } catch (error) {
+    console.error("[Search] Error:", error);
+    ws3.send(JSON.stringify({
+      type: "error",
+      message: error.message || "Search failed. Please try again."
     }));
   }
 }
@@ -3373,88 +3463,10 @@ var init_image_generation = __esm({
   }
 });
 
-// server/static.ts
-var static_exports = {};
-__export(static_exports, {
-  serveStatic: () => serveStatic
-});
-import express2 from "express";
-import fs2 from "fs";
-import path2 from "path";
-function serveStatic(app2) {
-  const possiblePaths = [
-    path2.resolve(import.meta.dirname, "public"),
-    // Built: dist/index.js -> dist/public
-    path2.resolve(import.meta.dirname, "..", "dist", "public"),
-    // From server/ -> ../dist/public
-    path2.resolve(process.cwd(), "dist", "public"),
-    // From project root
-    path2.resolve("/var/task", "dist", "public")
-    // Vercel serverless path
-  ];
-  console.log(`[serveStatic] import.meta.dirname: ${import.meta.dirname}`);
-  console.log(`[serveStatic] process.cwd(): ${process.cwd()}`);
-  let distPath = null;
-  for (const possiblePath of possiblePaths) {
-    console.log(`[serveStatic] Checking: ${possiblePath} - exists: ${fs2.existsSync(possiblePath)}`);
-    if (fs2.existsSync(possiblePath)) {
-      distPath = possiblePath;
-      console.log(`[serveStatic] \u2705 Found static files at: ${distPath}`);
-      break;
-    }
-  }
-  if (!distPath) {
-    console.error(`[serveStatic] \u274C Could not find build directory. Tried:`, possiblePaths);
-    app2.use("*", (_req, res) => {
-      res.status(500).json({
-        error: "Static files not found",
-        message: "The application build files could not be located. Please ensure the build completed successfully.",
-        triedPaths: possiblePaths,
-        dirname: import.meta.dirname,
-        cwd: process.cwd()
-      });
-    });
-    return;
-  }
-  console.log(`[serveStatic] Serving static files from: ${distPath}`);
-  app2.use(express2.static(distPath, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith(".js")) {
-        res.setHeader("Content-Type", "application/javascript");
-      } else if (filePath.endsWith(".css")) {
-        res.setHeader("Content-Type", "text/css");
-      } else if (filePath.endsWith(".html")) {
-        res.setHeader("Content-Type", "text/html");
-      }
-    }
-  }));
-  app2.use("*", (_req, res) => {
-    const indexPath = path2.resolve(distPath, "index.html");
-    console.log(`[serveStatic] Serving index.html from: ${indexPath}`);
-    if (fs2.existsSync(indexPath)) {
-      res.setHeader("Content-Type", "text/html");
-      res.sendFile(indexPath);
-    } else {
-      console.error(`[serveStatic] index.html not found at: ${indexPath}`);
-      res.status(404).json({
-        error: "Not found",
-        message: "The requested resource could not be found.",
-        indexPath
-      });
-    }
-  });
-}
-var init_static = __esm({
-  "server/static.ts"() {
-    "use strict";
-  }
-});
-
-// server/index.ts
+// server/index.vercel.ts
 import "dotenv/config";
 import express3 from "express";
 import { createServer } from "http";
-import { WebSocketServer } from "ws";
 
 // server/routes.ts
 init_storage();
@@ -3747,18 +3759,29 @@ async function registerRoutes(app2) {
   app2.post("/api/conversations", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session.userId;
+      console.log("[Create Conversation] Request body:", req.body);
+      console.log("[Create Conversation] userId:", userId);
       const data = insertConversationSchema.parse({
         ...req.body,
         userId
       });
+      console.log("[Create Conversation] Parsed data:", data);
       const conversation = await storage.createConversation(data);
+      console.log("[Create Conversation] Created:", conversation.id);
       res.json(conversation);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("[Create Conversation] Validation error:", error.errors);
         return res.status(400).json({ error: error.errors });
       }
-      console.error("Error creating conversation:", error);
-      res.status(500).send("Failed to create conversation");
+      console.error("[Create Conversation] Error:", error);
+      console.error("[Create Conversation] Error details:", {
+        message: error.message,
+        code: error.code,
+        constraint: error.constraint,
+        detail: error.detail
+      });
+      res.status(500).json({ error: error.message || "Failed to create conversation" });
     }
   });
   app2.delete("/api/conversations/:id", isAuthenticated, async (req, res) => {
@@ -3923,11 +3946,16 @@ async function registerRoutes(app2) {
       const targetUserId = req.params.id;
       const { email, password, firstName, lastName, phone, role } = req.body;
       const updates = {};
-      if (email) updates.email = email;
-      if (firstName !== void 0) updates.firstName = firstName;
-      if (lastName !== void 0) updates.lastName = lastName;
-      if (phone !== void 0) updates.phone = phone;
-      if (role) updates.role = role;
+      if (email)
+        updates.email = email;
+      if (firstName !== void 0)
+        updates.firstName = firstName;
+      if (lastName !== void 0)
+        updates.lastName = lastName;
+      if (phone !== void 0)
+        updates.phone = phone;
+      if (role)
+        updates.role = role;
       if (password) {
         const bcrypt2 = await import("bcryptjs");
         updates.passwordHash = await bcrypt2.hash(password, 10);
@@ -4093,58 +4121,89 @@ async function registerRoutes(app2) {
   });
 }
 
-// server/index.ts
-init_websocket();
-var app = express3();
-var server = createServer(app);
-var isVercel = !!process.env.VERCEL || !!process.env.VERCEL_ENV;
-var isServerless = process.env.VERCEL && process.env.VERCEL_ENV && !process.env.VERCEL_NODE_RUNTIME;
-if (isVercel && (process.env.VERCEL || process.env.VERCEL_ENV)) {
-  Object.defineProperty(global, "vite", {
-    get: () => {
-      throw new Error("Vite is not available on Vercel - use static file serving instead");
-    },
-    configurable: false
+// server/static.ts
+import express2 from "express";
+import fs2 from "fs";
+import path2 from "path";
+function serveStatic(app2) {
+  const possiblePaths = [
+    path2.resolve(import.meta.dirname, "public"),
+    // Built: dist/index.js -> dist/public
+    path2.resolve(import.meta.dirname, "..", "dist", "public"),
+    // From server/ -> ../dist/public
+    path2.resolve(process.cwd(), "dist", "public"),
+    // From project root
+    path2.resolve("/var/task", "dist", "public")
+    // Vercel serverless path
+  ];
+  console.log(`[serveStatic] import.meta.dirname: ${import.meta.dirname}`);
+  console.log(`[serveStatic] process.cwd(): ${process.cwd()}`);
+  let distPath = null;
+  for (const possiblePath of possiblePaths) {
+    console.log(`[serveStatic] Checking: ${possiblePath} - exists: ${fs2.existsSync(possiblePath)}`);
+    if (fs2.existsSync(possiblePath)) {
+      distPath = possiblePath;
+      console.log(`[serveStatic] \u2705 Found static files at: ${distPath}`);
+      break;
+    }
+  }
+  if (!distPath) {
+    console.error(`[serveStatic] \u274C Could not find build directory. Tried:`, possiblePaths);
+    app2.use("*", (_req, res) => {
+      res.status(500).json({
+        error: "Static files not found",
+        message: "The application build files could not be located. Please ensure the build completed successfully.",
+        triedPaths: possiblePaths,
+        dirname: import.meta.dirname,
+        cwd: process.cwd()
+      });
+    });
+    return;
+  }
+  console.log(`[serveStatic] Serving static files from: ${distPath}`);
+  app2.use(express2.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".js")) {
+        res.setHeader("Content-Type", "application/javascript");
+      } else if (filePath.endsWith(".css")) {
+        res.setHeader("Content-Type", "text/css");
+      } else if (filePath.endsWith(".html")) {
+        res.setHeader("Content-Type", "text/html");
+      }
+    }
+  }));
+  app2.use("*", (_req, res) => {
+    const indexPath = path2.resolve(distPath, "index.html");
+    console.log(`[serveStatic] Serving index.html from: ${indexPath}`);
+    if (fs2.existsSync(indexPath)) {
+      res.setHeader("Content-Type", "text/html");
+      res.sendFile(indexPath);
+    } else {
+      console.error(`[serveStatic] index.html not found at: ${indexPath}`);
+      res.status(404).json({
+        error: "Not found",
+        message: "The requested resource could not be found.",
+        indexPath
+      });
+    }
   });
 }
+
+// server/index.vercel.ts
+var app = express3();
+var server = createServer(app);
 var isInitialized = false;
 var initError = null;
 var initPromise = (async () => {
   try {
     await initializeApp();
     isInitialized = true;
-    console.log("[Server] \u2705 Initialization complete");
   } catch (error) {
     initError = error;
-    console.error("[Server] \u274C Initialization failed:", error);
-    console.error("[Server] Error details:", {
-      message: error.message,
-      stack: error.stack
-    });
-    if (!isVercel) {
-      throw error;
-    }
+    console.error("[Server] Initialization failed:", error);
+    console.error("[Server] Error stack:", error.stack);
   }
 })();
-var allowedOrigins = [
-  process.env.FRONTEND_URL,
-  "http://localhost:5173",
-  "http://localhost:5000",
-  "https://chat-cookin-knowledge-saint-*.vercel.app"
-].filter(Boolean);
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.filter((allowed) => !!allowed).some((allowed) => origin.includes(allowed.replace("*", ""))) || allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  }
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
 app.use(
   express3.json({
     verify: (req, _res, buf) => {
@@ -4153,27 +4212,25 @@ app.use(
   })
 );
 app.use(express3.urlencoded({ extended: false }));
-if (isVercel) {
-  app.use(async (req, res, next) => {
-    try {
-      await initPromise;
-      if (initError) {
-        return res.status(500).json({
-          error: "Server initialization failed",
-          message: initError.message,
-          details: "The server failed to initialize. Check environment variables and database connection."
-        });
-      }
-      next();
-    } catch (error) {
-      res.status(500).json({
-        error: "Server initialization error",
-        message: error.message,
-        details: "An error occurred during server initialization."
+app.use(async (req, res, next) => {
+  try {
+    await initPromise;
+    if (initError) {
+      return res.status(500).json({
+        error: "Server initialization failed",
+        message: initError.message,
+        details: "The server failed to initialize. Check environment variables and database connection."
       });
     }
-  });
-}
+    next();
+  } catch (error) {
+    res.status(500).json({
+      error: "Server initialization error",
+      message: error.message,
+      details: "An error occurred during server initialization."
+    });
+  }
+});
 app.use((req, res, next) => {
   const start = Date.now();
   const path3 = req.path;
@@ -4205,10 +4262,12 @@ app.use((req, res, next) => {
   next();
 });
 async function initializeApp() {
+  console.log("[Server] Initializing Vercel serverless function...");
   try {
     await registerRoutes(app);
+    console.log("[Server] \u2705 API routes registered");
   } catch (error) {
-    console.error("[initializeApp] Error registering routes:", error);
+    console.error("[Server] Error registering routes:", error);
     app.get("/api/health", (req, res) => {
       res.json({
         status: "degraded",
@@ -4216,119 +4275,31 @@ async function initializeApp() {
         error: error.message
       });
     });
-  }
-  if (!isServerless) {
-    const wss = new WebSocketServer({ server, path: "/ws" });
-    wss.on("connection", async (ws3, request) => {
-      try {
-        const cookieHeader = request.headers.cookie;
-        if (!cookieHeader) {
-          console.error("WebSocket connection rejected: No session cookie");
-          ws3.close(1008, "Unauthorized - No session");
-          return;
-        }
-        const cookies = cookieHeader.split(";").reduce((acc, cookie) => {
-          const [key, value] = cookie.trim().split("=");
-          acc[key] = value;
-          return acc;
-        }, {});
-        const sessionCookie = cookies["connect.sid"];
-        if (!sessionCookie) {
-          console.error("WebSocket connection rejected: No session ID");
-          ws3.close(1008, "Unauthorized - No session ID");
-          return;
-        }
-        const sessionId = decodeURIComponent(sessionCookie).split(".")[0].substring(2);
-        const { sessionStore: sessionStore2 } = await Promise.resolve().then(() => (init_simple_auth(), simple_auth_exports));
-        sessionStore2.get(sessionId, async (err, session2) => {
-          if (err || !session2 || !session2.userId) {
-            console.error(
-              "WebSocket connection rejected: Invalid or expired session",
-              err
-            );
-            ws3.close(1008, "Unauthorized - Invalid session");
-            return;
-          }
-          const userId = session2.userId;
-          const email = session2.user?.email;
-          if (!userId || !email) {
-            console.error("WebSocket connection rejected: No user in session");
-            ws3.close(1008, "Unauthorized - No user");
-            return;
-          }
-          console.log(`WebSocket authenticated for user: ${email} (${userId})`);
-          handleWebSocket(ws3, request, userId, email);
-        });
-      } catch (error) {
-        console.error("WebSocket connection error:", error);
-        ws3.close(1011, "Internal server error");
-      }
-    });
-  } else {
-    console.log("[Server] Serverless detected - WebSockets disabled, using SSE fallback");
+    throw error;
   }
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    console.error("[Error Handler]", err);
+    console.error(`[Server] Error ${status}:`, message);
+    console.error(err.stack);
     res.status(status).json({ message });
   });
-  if (isVercel) {
-    console.log("[Server] Vercel detected - using static file server (NO VITE)");
-    const { serveStatic: serveStatic2 } = await Promise.resolve().then(() => (init_static(), static_exports));
-    serveStatic2(app);
-  } else {
-    try {
-      if (process.env.VERCEL || process.env.VERCEL_ENV) {
-        console.error("[Server] CRITICAL: Attempted to import vite on Vercel - using static fallback");
-        const { serveStatic: serveStatic3 } = await Promise.resolve().then(() => (init_static(), static_exports));
-        serveStatic3(app);
-        return;
-      }
-      console.log("[Server] Loading vite module for local development...");
-      const { setupVite, serveStatic: serveStatic2, log } = await import("./vite.js");
-      console.log("[Server] Vite module loaded successfully");
-      const fs3 = await import("fs");
-      const path3 = await import("path");
-      const distPath = path3.resolve(import.meta.dirname, "..", "dist", "public");
-      const hasBuild = fs3.existsSync(distPath);
-      const isDevelopment = !hasBuild || process.env.NODE_ENV === "development";
-      log(`[Server] NODE_ENV: "${process.env.NODE_ENV}"`);
-      log(`[Server] Build exists: ${hasBuild}`);
-      log(`[Server] isDevelopment: ${isDevelopment}`);
-      log(`[Server] Using ${isDevelopment ? "Vite dev server" : "static build"}`);
-      if (isDevelopment) {
-        await setupVite(app, server);
-      } else {
-        serveStatic2(app);
-      }
-    } catch (error) {
-      console.error("[Server] Error loading vite module:", error);
-      console.log("[Server] Falling back to static file server");
-      const { serveStatic: serveStatic2 } = await Promise.resolve().then(() => (init_static(), static_exports));
-      serveStatic2(app);
-    }
-  }
-  if (!isVercel) {
-    const port = parseInt(process.env.PORT || "5000", 10);
-    server.listen(port, "0.0.0.0", () => {
-      const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true
-      });
-      console.log(`${formattedTime} [express] serving on port ${port}`);
-    });
-  }
+  console.log("[Server] Setting up static file serving...");
+  serveStatic(app);
+  console.log("[Server] \u2705 Static files configured");
+  console.log("[Server] \u2705 Initialization complete");
 }
 initPromise.catch((error) => {
   console.error("[Server] Fatal initialization error:", error);
   console.error("[Server] Error stack:", error.stack);
-  if (!isVercel) {
-    process.exit(1);
-  }
 });
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Server] Unhandled Rejection at:", promise, "reason:", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("[Server] Uncaught Exception:", error);
+});
+var index_vercel_default = app;
 export {
-  app as default
+  index_vercel_default as default
 };
